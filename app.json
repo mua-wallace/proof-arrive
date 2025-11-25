@@ -38,6 +38,18 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ProofArrive to access your camera to scan QR codes on vehicles."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow ProofArrive to access your location to record GPS coordinates when scanning vehicle arrivals."
+        }
       ]
     ],
     "experiments": {
