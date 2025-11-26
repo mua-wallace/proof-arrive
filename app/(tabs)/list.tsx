@@ -6,7 +6,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { getAllArrivals } from '@/services/storage';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { SwipeableTab } from '@/components/swipeable-tab';
 
 const TABS = ['index', 'list', 'profile'];
@@ -25,6 +25,7 @@ export default function ScannedListScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const tintColor = useThemeColor({}, 'tint');
+  const colors = useThemeColors();
 
   useEffect(() => {
     loadArrivals();
@@ -69,7 +70,14 @@ export default function ScannedListScreen() {
     
     return (
       <TouchableOpacity
-        style={styles.item}
+        style={[
+          styles.item,
+          {
+            backgroundColor: colors.cardBackground,
+            borderColor: colors.cardBorder,
+            shadowColor: colors.shadow,
+          },
+        ]}
         activeOpacity={0.7}
         onPress={() => {
           // TODO: Navigate to detail view if needed
@@ -121,7 +129,7 @@ export default function ScannedListScreen() {
           </View>
 
           {/* Divider */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
           {/* Details Section */}
           <View style={styles.itemDetails}>
@@ -243,11 +251,8 @@ const styles = StyleSheet.create({
   item: {
     marginBottom: 10,
     borderRadius: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
@@ -312,7 +317,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
     marginBottom: 12,
     marginHorizontal: 2,
   },

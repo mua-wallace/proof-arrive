@@ -6,12 +6,13 @@ import * as Haptics from 'expo-haptics';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { OperationType } from '@/types/arrival';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 
 export default function OperationTypeScreen() {
   const params = useLocalSearchParams();
   const [selectedType, setSelectedType] = useState<OperationType | null>(null);
   const tintColor = useThemeColor({}, 'tint');
+  const colors = useThemeColors();
 
   const handleSelect = async (type: OperationType) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -45,6 +46,10 @@ export default function OperationTypeScreen() {
         <TouchableOpacity
           style={[
             styles.option,
+            {
+              borderColor: colors.cardBorder,
+              backgroundColor: colors.cardBackground,
+            },
             selectedType === 'loading' && { borderColor: tintColor, borderWidth: 3 },
           ]}
           onPress={() => handleSelect('loading')}
@@ -60,6 +65,10 @@ export default function OperationTypeScreen() {
         <TouchableOpacity
           style={[
             styles.option,
+            {
+              borderColor: colors.cardBorder,
+              backgroundColor: colors.cardBackground,
+            },
             selectedType === 'unloading' && { borderColor: tintColor, borderWidth: 3 },
           ]}
           onPress={() => handleSelect('unloading')}
@@ -76,7 +85,7 @@ export default function OperationTypeScreen() {
       <TouchableOpacity
         style={[
           styles.confirmButton,
-          { backgroundColor: selectedType ? tintColor : '#ccc' },
+          { backgroundColor: selectedType ? tintColor : colors.disabled },
           !selectedType && styles.confirmButtonDisabled,
         ]}
         onPress={handleConfirm}
@@ -114,8 +123,6 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
   },
   optionTitle: {
     marginBottom: 8,

@@ -1,9 +1,11 @@
-import { StyleSheet, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { useThemeColor } from '@/hooks/use-theme-color';
+import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
+import { useThemeContext } from '@/contexts/theme-context';
 import { DEFAULT_CENTER_ID, DEFAULT_AGENT_ID } from '@/constants/config';
 import { SwipeableTab } from '@/components/swipeable-tab';
 
@@ -11,11 +13,19 @@ const TABS = ['index', 'list', 'profile'];
 
 export default function ProfileScreen() {
   const tintColor = useThemeColor({}, 'tint');
+  const colors = useThemeColors();
+  const { themeMode, setThemeMode, isDark } = useThemeContext();
 
   const handleSync = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // TODO: Implement sync functionality
     // await checkAndSync();
+  };
+
+  const handleThemeToggle = async (value: boolean) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newMode = value ? 'dark' : 'light';
+    await setThemeMode(newMode);
   };
 
   return (
@@ -38,13 +48,41 @@ export default function ProfileScreen() {
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Information
           </ThemedText>
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderBottomColor: colors.divider }]}>
             <ThemedText style={styles.infoLabel}>Agent ID:</ThemedText>
             <ThemedText style={styles.infoValue}>{DEFAULT_AGENT_ID}</ThemedText>
           </View>
-          <View style={styles.infoRow}>
+          <View style={[styles.infoRow, { borderBottomColor: colors.divider }]}>
             <ThemedText style={styles.infoLabel}>Center ID:</ThemedText>
             <ThemedText style={styles.infoValue}>{DEFAULT_CENTER_ID}</ThemedText>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>
+            Appearance
+          </ThemedText>
+          <View style={[styles.settingRow, { borderBottomColor: colors.divider }]}>
+            <View style={styles.settingLeft}>
+              <MaterialIcons
+                name={isDark ? 'dark-mode' : 'light-mode'}
+                size={20}
+                color={tintColor}
+                style={styles.settingIcon}
+              />
+              <View style={styles.settingTextContainer}>
+                <ThemedText style={styles.settingLabel}>Dark Mode</ThemedText>
+                <ThemedText style={styles.settingDescription}>
+                  {themeMode === 'auto' ? 'Following system' : themeMode === 'dark' ? 'Enabled' : 'Disabled'}
+                </ThemedText>
+              </View>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={handleThemeToggle}
+              trackColor={{ false: colors.cardBorder, true: tintColor + '80' }}
+              thumbColor={isDark ? tintColor : '#f4f3f4'}
+            />
           </View>
         </View>
 
@@ -118,7 +156,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
   },
   infoLabel: {
     fontSize: 14,
@@ -144,6 +181,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.7,
     lineHeight: 22,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingIcon: {
+    marginRight: 12,
+  },
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  settingDescription: {
+    fontSize: 12,
+    opacity: 0.6,
   },
 });
 
