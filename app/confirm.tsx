@@ -3,6 +3,7 @@ import { StyleSheet, TouchableOpacity, View, ActivityIndicator, Alert } from 're
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Network from 'expo-network';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +17,7 @@ function ConfirmScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const tintColor = useThemeColor({}, 'tint');
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     saveArrivalData();
@@ -132,7 +134,7 @@ function ConfirmScreen() {
         </View>
       </View>
 
-      <View style={styles.actionsContainer}>
+      <View style={[styles.actionsContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[styles.button, styles.primaryButton, { backgroundColor: tintColor }]}
           onPress={handleScanAnother}
@@ -185,12 +187,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   title: {
-    marginBottom: 32,
+    marginBottom: 24,
     textAlign: 'center',
   },
   detailsContainer: {
     width: '100%',
-    gap: 16,
+    gap: 12,
   },
   detailRow: {
     flexDirection: 'row',
@@ -212,7 +214,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     gap: 12,
-    paddingTop: 24,
+    paddingTop: 8,
   },
   button: {
     paddingVertical: 16,

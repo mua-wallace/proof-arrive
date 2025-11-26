@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wallicedev.ProofArrive"
     },
     "android": {
       "adaptiveIcon": {
@@ -37,12 +38,9 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0a7ea4",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#151718"
           }
         }
       ],

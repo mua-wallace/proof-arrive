@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { StyleSheet, View, Alert, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, View, Alert, ActivityIndicator, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -23,9 +23,30 @@ export default function ScanScreen() {
     router.back();
   };
 
+  const handleRequestPermission = async () => {
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          'Permission Denied',
+          'Camera permission is required to scan QR codes. Please enable it in your device settings.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Permission Error',
+        'Failed to request camera permission. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   useEffect(() => {
-    if (permission && !permission.granted) {
-      requestPermission();
+    // Auto-request permission on mount if not granted
+    if (permission && !permission.granted && !permission.canAskAgain) {
+      // Permission was denied permanently, show the button
     }
   }, [permission]);
 
@@ -79,31 +100,38 @@ export default function ScanScreen() {
 
   if (!permission) {
     return (
-      <ThemedView style={styles.container}>
-        <ActivityIndicator size="large" color={tintColor} />
-        <ThemedText style={styles.message}>Requesting camera permission...</ThemedText>
+      <ThemedView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.message}>Requesting camera permission...</ThemedText>
+        </View>
       </ThemedView>
     );
   }
 
   if (!permission.granted) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedText type="title" style={styles.title}>
-          Camera Permission Required
-        </ThemedText>
-        <ThemedText style={styles.message}>
-          Please grant camera permission to scan QR codes
-        </ThemedText>
-        <View style={[styles.button, { backgroundColor: tintColor }]}>
-          <ThemedText
-            style={styles.buttonText}
-            onPress={requestPermission}
-            lightColor="#fff"
-            darkColor="#fff">
-            Grant Permission
-          </ThemedText>
-        </View>
+      <ThemedView style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <ScrollView
+          contentContainerStyle={styles.permissionContent}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.permissionContainer}>
+            <ThemedText type="title" style={styles.title}>
+              Camera Permission Required
+            </ThemedText>
+            <ThemedText style={styles.message}>
+              Please grant camera permission to scan QR codes
+            </ThemedText>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: tintColor }]}
+              onPress={handleRequestPermission}
+              activeOpacity={0.8}>
+              <ThemedText style={styles.buttonText} lightColor="#fff" darkColor="#fff">
+                Grant Permission
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </ThemedView>
     );
   }
@@ -116,38 +144,38 @@ export default function ScanScreen() {
         onBarcodeScanned={scanning ? handleBarCodeScanned : undefined}
         barcodeScannerSettings={{
           barcodeTypes: ['qr'],
-        }}>
-        <View style={styles.overlay}>
-          <TouchableOpacity
-            style={[styles.closeButton, { top: insets.top + 10 }]}
-            onPress={handleClose}
-            activeOpacity={0.7}>
-            <View style={styles.closeButtonContainer}>
-              <ThemedText style={styles.closeButtonText} lightColor="#fff" darkColor="#fff">
-                ✕
-              </ThemedText>
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.scanArea}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+        }}
+      />
+      <View style={styles.overlay}>
+        <TouchableOpacity
+          style={[styles.closeButton, { top: insets.top + 10 }]}
+          onPress={handleClose}
+          activeOpacity={0.7}>
+          <View style={styles.closeButtonContainer}>
+            <ThemedText style={styles.closeButtonText} lightColor="#fff" darkColor="#fff">
+              ✕
+            </ThemedText>
           </View>
-          <ThemedText style={styles.instruction} lightColor="#fff" darkColor="#fff">
-            Position QR code within the frame
-          </ThemedText>
-          {processing && (
-            <View style={styles.processingContainer}>
-              <ActivityIndicator size="large" color="#fff" />
-              <ThemedText style={styles.processingText} lightColor="#fff" darkColor="#fff">
-                Processing...
-              </ThemedText>
-            </View>
-          )}
+        </TouchableOpacity>
+
+        <View style={styles.scanArea}>
+          <View style={[styles.corner, styles.topLeft]} />
+          <View style={[styles.corner, styles.topRight]} />
+          <View style={[styles.corner, styles.bottomLeft]} />
+          <View style={[styles.corner, styles.bottomRight]} />
         </View>
-      </CameraView>
+        <ThemedText style={styles.instruction} lightColor="#fff" darkColor="#fff">
+          Position QR code within the frame
+        </ThemedText>
+        {processing && (
+          <View style={styles.processingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <ThemedText style={styles.processingText} lightColor="#fff" darkColor="#fff">
+              Processing...
+            </ThemedText>
+          </View>
+        )}
+      </View>
     </ThemedView>
   );
 }
@@ -156,11 +184,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
   camera: {
     flex: 1,
   },
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -235,19 +269,33 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
   },
+  permissionContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  permissionContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
   title: {
     marginBottom: 16,
     textAlign: 'center',
+    fontSize: 28,
   },
   message: {
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
     paddingHorizontal: 20,
+    fontSize: 16,
+    lineHeight: 24,
   },
   button: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+    minWidth: 200,
+    alignItems: 'center',
   },
   buttonText: {
     fontSize: 16,
