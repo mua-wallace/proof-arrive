@@ -97,8 +97,10 @@ function ConfirmScreen() {
   if (saving && !saved) {
     return (
       <ThemedView style={styles.container}>
-        <ActivityIndicator size="large" color={tintColor} />
-        <ThemedText style={styles.savingText}>Saving arrival record...</ThemedText>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={styles.savingText}>Saving arrival record...</ThemedText>
+        </View>
       </ThemedView>
     );
   }
@@ -241,10 +243,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   savingText: {
     marginTop: 16,
     textAlign: 'center',
     opacity: 0.7,
+    fontSize: 16,
   },
 });
 
