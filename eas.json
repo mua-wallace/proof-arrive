@@ -15,7 +15,6 @@
       "distribution": "internal",
       "env": {
         "NODE_ENV": "production"
-        
       }
     },
     "production": {

@@ -1,0 +1,22 @@
+# EAS Build ignore patterns
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+.DS_Store
+*.pem
+*.key
+*.p12
+*.mobileprovision
+*.jks
+android/build/
+android/app/build/
+ios/build/
+ios/Pods/
+*.xcworkspace
+*.xcodeproj
+.git/
+.vscode/
+.idea/
+
