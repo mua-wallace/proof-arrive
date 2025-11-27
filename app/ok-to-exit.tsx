@@ -1,104 +1,58 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import * as Network from 'expo-network';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { saveArrival } from '@/services/storage';
-import { DEFAULT_CENTER_ID, DEFAULT_AGENT_ID } from '@/constants/config';
+import { updateArrivalStatus } from '@/services/storage';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { OperationType } from '@/types/arrival';
 
-function ConfirmScreen() {
+export default function OkToExitScreen() {
   const params = useLocalSearchParams();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const tintColor = useThemeColor({}, 'tint');
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    saveArrivalData();
-  }, []);
-
-  const saveArrivalData = async () => {
-    if (saving || saved) return;
+  const handleOkToExit = async () => {
+    if (saving) return;
 
     setSaving(true);
 
     try {
-      const vehicleId = params.vehicleId as string;
-      const centerId = (params.centerId as string) || DEFAULT_CENTER_ID;
-      const operationType = params.operationType as OperationType;
-      const scanTimestamp = parseInt(params.scanTimestamp as string, 10);
-      const agentLatitude = parseFloat(params.agentLatitude as string);
-      const agentLongitude = parseFloat(params.agentLongitude as string);
-      const agentAccuracy = params.agentAccuracy
-        ? parseFloat(params.agentAccuracy as string)
-        : undefined;
-      const vehicleGPSDevice = (params.vehicleGPSDevice as string) || undefined;
+      const arrivalId = params.id as string;
 
-      const recordId = `ARR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      await saveArrival({
-        id: recordId,
-        vehicleId,
-        centerId,
-        agentId: DEFAULT_AGENT_ID,
-        operationType,
-        scanTimestamp,
-        agentLatitude,
-        agentLongitude,
-        agentAccuracy,
-        vehicleGPSDevice,
-      });
-
-      // Check network status
-      const networkState = await Network.getNetworkStateAsync();
-      const isOnline = networkState.isConnected && networkState.isInternetReachable;
-
-      setSaved(true);
+      await updateArrivalStatus(arrivalId, 'ready_to_exit');
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      if (!isOnline) {
-        Alert.alert(
-          'Saved Offline',
-          'Your arrival record has been saved locally and will sync when you regain internet connection.',
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Validated',
+        'Vehicle is OK to exit. You can now proceed with exit confirmation.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (error) {
       setSaving(false);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       
       Alert.alert(
-        'Save Error',
-        error instanceof Error ? error.message : 'Failed to save arrival record',
+        'Error',
+        error instanceof Error ? error.message : 'Failed to validate exit',
         [{ text: 'OK' }]
       );
     }
   };
 
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleString();
-  };
-
-  const handleDone = () => {
-    router.replace('/(tabs)/list');
-  };
-
-  const handleScanAnother = () => {
-    router.replace('/scan');
-  };
-
-  if (saving && !saved) {
+  if (saving) {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator size="large" color={tintColor} />
-        <ThemedText style={styles.savingText}>Saving arrival record...</ThemedText>
+        <ThemedText style={styles.savingText}>Validating...</ThemedText>
       </ThemedView>
     );
   }
@@ -113,45 +67,34 @@ function ConfirmScreen() {
         </View>
 
         <ThemedText type="title" style={styles.title}>
-          Arrival Confirmed
+          OK to Exit
         </ThemedText>
-        <ThemedText style={styles.statusText}>
-          Vehicle is now in processing
+
+        <ThemedText style={styles.description}>
+          Validate that this vehicle is ready to exit the center. You can then proceed with exit confirmation.
         </ThemedText>
 
         <View style={styles.detailsContainer}>
           <DetailRow label="Vehicle ID" value={params.vehicleId as string} />
-          <DetailRow label="Center ID" value={(params.centerId as string) || DEFAULT_CENTER_ID} />
-          <DetailRow
-            label="Operation"
-            value={(params.operationType as string).toUpperCase()}
-          />
-          <DetailRow
-            label="Arrival Time"
-            value={formatTimestamp(parseInt(params.scanTimestamp as string, 10))}
-          />
-          <DetailRow
-            label="Location"
-            value={`${parseFloat(params.agentLatitude as string).toFixed(6)}, ${parseFloat(params.agentLongitude as string).toFixed(6)}`}
-          />
+          <DetailRow label="Operation" value={(params.operationType as string).toUpperCase()} />
         </View>
       </View>
 
       <View style={[styles.actionsContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[styles.button, styles.primaryButton, { backgroundColor: tintColor }]}
-          onPress={handleScanAnother}
+          onPress={handleOkToExit}
           activeOpacity={0.8}>
           <ThemedText style={styles.buttonText} lightColor="#fff" darkColor="#fff">
-            Scan Another
+            Validate OK to Exit
           </ThemedText>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, styles.secondaryButton]}
-          onPress={handleDone}
+          onPress={() => router.back()}
           activeOpacity={0.8}>
-          <ThemedText style={styles.buttonText}>Done</ThemedText>
+          <ThemedText style={styles.buttonText}>Cancel</ThemedText>
         </TouchableOpacity>
       </View>
     </ThemedView>
@@ -190,15 +133,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   title: {
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
   },
-  statusText: {
-    marginBottom: 24,
+  description: {
     textAlign: 'center',
+    marginBottom: 32,
     opacity: 0.7,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 16,
+    paddingHorizontal: 24,
   },
   detailsContainer: {
     width: '100%',
@@ -247,6 +190,4 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-
-export default ConfirmScreen;
 

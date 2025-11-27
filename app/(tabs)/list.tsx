@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, FlatList, View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCallback } from 'react';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { getAllArrivals } from '@/services/storage';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { SwipeableTab } from '@/components/swipeable-tab';
+import { VehicleStatus } from '@/types/arrival';
 
 const TABS = ['index', 'list', 'profile'];
 
@@ -18,6 +20,12 @@ interface ArrivalItem {
   centerId: string;
   operationType: string;
   scanTimestamp: number;
+  status: string | null;
+  processingStartTime: number | null;
+  processingEndTime: number | null;
+  exitType: string | null;
+  exitDestination: string | null;
+  exitTime: number | null;
   synced: number;
 }
 
@@ -32,6 +40,13 @@ export default function ScannedListScreen() {
   useEffect(() => {
     loadArrivals();
   }, []);
+
+  // Refresh list when screen comes into focus (e.g., after status changes)
+  useFocusEffect(
+    useCallback(() => {
+      loadArrivals();
+    }, [])
+  );
 
   const loadArrivals = async () => {
     try {
@@ -65,13 +80,102 @@ export default function ScannedListScreen() {
     return date.toLocaleTimeString();
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'arrived':
+        return '#2196F3';
+      case 'in_processing':
+        return '#FF9800';
+      case 'ready_to_exit':
+        return '#4CAF50';
+      case 'exited':
+        return '#9E9E9E';
+      default:
+        return '#9E9E9E';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'arrived':
+        return 'Arrived';
+      case 'in_processing':
+        return 'In Processing';
+      case 'ready_to_exit':
+        return 'Ready to Exit';
+      case 'exited':
+        return 'Exited';
+      default:
+        return status;
+    }
+  };
+
+  const getActionButton = (item: ArrivalItem) => {
+    // Ensure status always has a value
+    const status = (item.status || 'in_processing') as VehicleStatus;
+    
+    if (status === 'in_processing') {
+      return (
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: tintColor }]}
+          onPress={() => {
+            router.push({
+              pathname: '/end-processing',
+              params: {
+                id: item.id,
+                vehicleId: item.vehicleId,
+                operationType: item.operationType,
+              },
+            });
+          }}
+          activeOpacity={0.8}>
+          <MaterialIcons name="check-circle" size={16} color="#fff" />
+          <ThemedText style={styles.actionButtonText} lightColor="#fff" darkColor="#fff">
+            End Processing
+          </ThemedText>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (status === 'ready_to_exit') {
+      return (
+        <TouchableOpacity
+          style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+          onPress={() => {
+            router.push({
+              pathname: '/exit-type',
+              params: {
+                id: item.id,
+                vehicleId: item.vehicleId,
+                centerId: item.centerId,
+                operationType: item.operationType,
+                vehicleGPSDevice: '', // Will be filled from QR scan
+              },
+            });
+          }}
+          activeOpacity={0.8}>
+          <MaterialIcons name="exit-to-app" size={16} color="#fff" />
+          <ThemedText style={styles.actionButtonText} lightColor="#fff" darkColor="#fff">
+            Record Exit
+          </ThemedText>
+        </TouchableOpacity>
+      );
+    }
+    
+    return null;
+  };
+
   const renderItem = ({ item }: { item: ArrivalItem }) => {
     const isSynced = item.synced === 1 || item.synced === true;
     const operationType = item.operationType.toUpperCase();
     const isOperationLoading = operationType === 'LOADING';
+    // Ensure status always has a value (default to 'in_processing' for old records)
+    const itemStatus = item.status || 'in_processing';
+    const statusColor = getStatusColor(itemStatus);
+    const statusLabel = getStatusLabel(itemStatus);
     
     return (
-      <TouchableOpacity
+      <View
         style={[
           styles.item,
           {
@@ -79,11 +183,7 @@ export default function ScannedListScreen() {
             borderColor: colors.cardBorder,
             shadowColor: colors.shadow,
           },
-        ]}
-        activeOpacity={0.7}
-        onPress={() => {
-          // TODO: Navigate to detail view if needed
-        }}>
+        ]}>
         <View style={styles.itemContent}>
           {/* Header Section */}
           <View style={styles.itemHeader}>
@@ -104,29 +204,49 @@ export default function ScannedListScreen() {
                 </ThemedText>
               </View>
             </View>
-            <View
-              style={[
-                styles.syncBadge,
-                {
-                  backgroundColor: isSynced ? '#4CAF50' + '20' : '#FF9800' + '20',
-                  borderColor: isSynced ? '#4CAF50' : '#FF9800',
-                },
-              ]}>
-              <MaterialIcons
-                name={isSynced ? 'cloud-done' : 'cloud-upload'}
-                size={12}
-                color={isSynced ? '#4CAF50' : '#FF9800'}
-                style={styles.syncIcon}
-              />
-              <ThemedText
+            <View style={styles.badgesContainer}>
+              <View
                 style={[
-                  styles.syncText,
+                  styles.statusBadge,
                   {
-                    color: isSynced ? '#4CAF50' : '#FF9800',
+                    backgroundColor: statusColor + '20',
+                    borderColor: statusColor,
                   },
                 ]}>
-                {isSynced ? 'Synced' : 'Pending'}
-              </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.statusText,
+                    {
+                      color: statusColor,
+                    },
+                  ]}>
+                  {statusLabel}
+                </ThemedText>
+              </View>
+              <View
+                style={[
+                  styles.syncBadge,
+                  {
+                    backgroundColor: isSynced ? '#4CAF50' + '20' : '#FF9800' + '20',
+                    borderColor: isSynced ? '#4CAF50' : '#FF9800',
+                  },
+                ]}>
+                <MaterialIcons
+                  name={isSynced ? 'cloud-done' : 'cloud-upload'}
+                  size={12}
+                  color={isSynced ? '#4CAF50' : '#FF9800'}
+                  style={styles.syncIcon}
+                />
+                <ThemedText
+                  style={[
+                    styles.syncText,
+                    {
+                      color: isSynced ? '#4CAF50' : '#FF9800',
+                    },
+                  ]}>
+                  {isSynced ? 'Synced' : 'Pending'}
+                </ThemedText>
+              </View>
             </View>
           </View>
 
@@ -182,8 +302,15 @@ export default function ScannedListScreen() {
               </View>
             </View>
           </View>
+
+          {/* Action Button */}
+          {getActionButton(item) && (
+            <View style={styles.actionContainer}>
+              {getActionButton(item)}
+            </View>
+          )}
         </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -301,6 +428,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     opacity: 0.6,
   },
+  badgesContainer: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
   syncBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -308,8 +453,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 10,
     borderWidth: 1,
-    marginLeft: 8,
-    flexShrink: 0,
   },
   syncIcon: {
     marginRight: 3,
@@ -380,6 +523,25 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     opacity: 0.7,
+  },
+  actionContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

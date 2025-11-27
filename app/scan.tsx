@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, View, Alert, ActivityIndicator, TouchableOpacity, Platform, ScrollView } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { parseQRCodeData } from '@/services/qr-scanner';
-import { getCurrentLocation } from '@/services/location';
+import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { getCurrentLocation } from '@/services/location';
+import { parseQRCodeData } from '@/services/qr-scanner';
+import { getAllArrivals } from '@/services/storage';
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -63,7 +64,28 @@ export default function ScanScreen() {
       // Parse QR code
       const qrData = parseQRCodeData(data);
 
-      // Get GPS location
+      // Check if vehicle already exists and is ready to exit
+      const allArrivals = await getAllArrivals();
+      const existingArrival = allArrivals.find(
+        (arrival) => arrival.vehicleId === qrData.vehicleId && arrival.status === 'ready_to_exit'
+      );
+
+      if (existingArrival) {
+        // Vehicle is ready to exit, navigate to exit flow
+        router.push({
+          pathname: '/exit-type' as any,
+          params: {
+            id: existingArrival.id,
+            vehicleId: qrData.vehicleId,
+            centerId: qrData.centerId || existingArrival.centerId,
+            operationType: existingArrival.operationType,
+            vehicleGPSDevice: qrData.vehicleGPSDevice || '',
+          },
+        });
+        return;
+      }
+
+      // New arrival - get GPS location
       const agentGPS = await getCurrentLocation();
 
       // Navigate to operation type selection with data

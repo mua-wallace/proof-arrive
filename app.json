@@ -41,7 +41,9 @@
           "backgroundColor": "#E6F4FE",
           "dark": {
             "backgroundColor": "#151718"
-          }
+          },
+          "image": null,
+          "resizeMode": "contain"
         }
       ],
       [

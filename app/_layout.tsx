@@ -62,6 +62,10 @@ function AppContent() {
         <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="operation-type" options={{ title: 'Operation Type', presentation: 'modal' }} />
         <Stack.Screen name="confirm" options={{ title: 'Confirmation', presentation: 'modal' }} />
+        <Stack.Screen name="end-processing" options={{ title: 'End Processing', presentation: 'modal' }} />
+        <Stack.Screen name="ok-to-exit" options={{ title: 'OK to Exit', presentation: 'modal' }} />
+        <Stack.Screen name="exit-type" options={{ title: 'Exit Type', presentation: 'modal' }} />
+        <Stack.Screen name="exit-confirm" options={{ title: 'Exit Confirmation', presentation: 'modal' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />

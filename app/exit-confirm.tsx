@@ -3,16 +3,17 @@ import { StyleSheet, TouchableOpacity, View, ActivityIndicator, Alert } from 're
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Network from 'expo-network';
+import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { saveArrival } from '@/services/storage';
+import { saveExit } from '@/services/storage';
 import { DEFAULT_CENTER_ID, DEFAULT_AGENT_ID } from '@/constants/config';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { OperationType } from '@/types/arrival';
+import { ExitType } from '@/types/arrival';
 
-function ConfirmScreen() {
+function ExitConfirmScreen() {
   const params = useLocalSearchParams();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -20,39 +21,46 @@ function ConfirmScreen() {
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    saveArrivalData();
+    saveExitData();
   }, []);
 
-  const saveArrivalData = async () => {
+  const saveExitData = async () => {
     if (saving || saved) return;
 
     setSaving(true);
 
     try {
-      const vehicleId = params.vehicleId as string;
-      const centerId = (params.centerId as string) || DEFAULT_CENTER_ID;
-      const operationType = params.operationType as OperationType;
-      const scanTimestamp = parseInt(params.scanTimestamp as string, 10);
-      const agentLatitude = parseFloat(params.agentLatitude as string);
-      const agentLongitude = parseFloat(params.agentLongitude as string);
-      const agentAccuracy = params.agentAccuracy
-        ? parseFloat(params.agentAccuracy as string)
-        : undefined;
-      const vehicleGPSDevice = (params.vehicleGPSDevice as string) || undefined;
+      const arrivalId = params.id as string;
+      const exitType = params.exitType as ExitType;
+      const exitDestination = (params.exitDestination as string) || undefined;
+      const exitTime = Date.now();
 
-      const recordId = `ARR-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      // Get current location for exit
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        throw new Error('Location permission is required for exit confirmation');
+      }
 
-      await saveArrival({
-        id: recordId,
-        vehicleId,
-        centerId,
-        agentId: DEFAULT_AGENT_ID,
-        operationType,
-        scanTimestamp,
-        agentLatitude,
-        agentLongitude,
-        agentAccuracy,
-        vehicleGPSDevice,
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const exitAgentLatitude = location.coords.latitude;
+      const exitAgentLongitude = location.coords.longitude;
+      const exitAgentAccuracy = location.coords.accuracy || undefined;
+
+      // Get vehicle GPS device from QR scan if available
+      const exitVehicleGPSDevice = (params.vehicleGPSDevice as string) || undefined;
+
+      await saveExit({
+        id: arrivalId,
+        exitType,
+        exitDestination,
+        exitTime,
+        exitAgentLatitude,
+        exitAgentLongitude,
+        exitAgentAccuracy,
+        exitVehicleGPSDevice,
       });
 
       // Check network status
@@ -65,7 +73,7 @@ function ConfirmScreen() {
       if (!isOnline) {
         Alert.alert(
           'Saved Offline',
-          'Your arrival record has been saved locally and will sync when you regain internet connection.',
+          'Exit record has been saved locally and will sync when you regain internet connection.',
           [{ text: 'OK' }]
         );
       }
@@ -75,7 +83,7 @@ function ConfirmScreen() {
       
       Alert.alert(
         'Save Error',
-        error instanceof Error ? error.message : 'Failed to save arrival record',
+        error instanceof Error ? error.message : 'Failed to save exit record',
         [{ text: 'OK' }]
       );
     }
@@ -98,7 +106,7 @@ function ConfirmScreen() {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator size="large" color={tintColor} />
-        <ThemedText style={styles.savingText}>Saving arrival record...</ThemedText>
+        <ThemedText style={styles.savingText}>Recording exit...</ThemedText>
       </ThemedView>
     );
   }
@@ -113,26 +121,18 @@ function ConfirmScreen() {
         </View>
 
         <ThemedText type="title" style={styles.title}>
-          Arrival Confirmed
-        </ThemedText>
-        <ThemedText style={styles.statusText}>
-          Vehicle is now in processing
+          Exit Confirmed
         </ThemedText>
 
         <View style={styles.detailsContainer}>
           <DetailRow label="Vehicle ID" value={params.vehicleId as string} />
-          <DetailRow label="Center ID" value={(params.centerId as string) || DEFAULT_CENTER_ID} />
+          <DetailRow label="Exit Type" value={(params.exitType as string).toUpperCase()} />
+          {params.exitDestination && (
+            <DetailRow label="Destination" value={params.exitDestination as string} />
+          )}
           <DetailRow
-            label="Operation"
-            value={(params.operationType as string).toUpperCase()}
-          />
-          <DetailRow
-            label="Arrival Time"
-            value={formatTimestamp(parseInt(params.scanTimestamp as string, 10))}
-          />
-          <DetailRow
-            label="Location"
-            value={`${parseFloat(params.agentLatitude as string).toFixed(6)}, ${parseFloat(params.agentLongitude as string).toFixed(6)}`}
+            label="Exit Time"
+            value={formatTimestamp(Date.now())}
           />
         </View>
       </View>
@@ -190,15 +190,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   title: {
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  statusText: {
     marginBottom: 24,
     textAlign: 'center',
-    opacity: 0.7,
-    fontSize: 14,
-    fontWeight: '500',
   },
   detailsContainer: {
     width: '100%',
@@ -248,5 +241,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ConfirmScreen;
+export default ExitConfirmScreen;
 
