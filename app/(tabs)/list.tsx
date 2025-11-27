@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, FlatList, View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
+import { StyleSheet, FlatList, View, TouchableOpacity, RefreshControl, ActivityIndicator, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,10 +29,14 @@ interface ArrivalItem {
   synced: number;
 }
 
+type FilterStatus = 'all' | 'in_processing' | 'ready_to_exit' | 'exited';
+
 export default function ScannedListScreen() {
   const [arrivals, setArrivals] = useState<ArrivalItem[]>([]);
+  const [filteredArrivals, setFilteredArrivals] = useState<ArrivalItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
   const tintColor = useThemeColor({}, 'tint');
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -52,12 +56,29 @@ export default function ScannedListScreen() {
     try {
       const data = await getAllArrivals();
       setArrivals(data);
+      applyFilter(data, activeFilter);
     } catch (error) {
       console.error('Failed to load arrivals:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const applyFilter = (data: ArrivalItem[], filter: FilterStatus) => {
+    if (filter === 'all') {
+      setFilteredArrivals(data);
+    } else {
+      const filtered = data.filter((item) => {
+        const itemStatus = item.status || 'in_processing';
+        return itemStatus === filter;
+      });
+      setFilteredArrivals(filtered);
+    }
+  };
+
+  useEffect(() => {
+    applyFilter(arrivals, activeFilter);
+  }, [activeFilter, arrivals]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -323,28 +344,114 @@ export default function ScannedListScreen() {
     );
   }
 
+  const filterTabs: { key: FilterStatus; label: string; count: number }[] = [
+    { key: 'all', label: 'All', count: arrivals.length },
+    {
+      key: 'in_processing',
+      label: 'Processing',
+      count: arrivals.filter((a) => (a.status || 'in_processing') === 'in_processing').length,
+    },
+    {
+      key: 'ready_to_exit',
+      label: 'Ready',
+      count: arrivals.filter((a) => a.status === 'ready_to_exit').length,
+    },
+    {
+      key: 'exited',
+      label: 'Exited',
+      count: arrivals.filter((a) => a.status === 'exited').length,
+    },
+  ];
+
   return (
     <SwipeableTab currentTab="list" tabs={TABS}>
       <ThemedView style={styles.container}>
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) }]}>
           <ThemedText type="title" style={styles.title}>
-            Scanned Arrivals
+            Vehicles
           </ThemedText>
           <ThemedText style={styles.subtitle}>
-            {arrivals.length} {arrivals.length === 1 ? 'record' : 'records'}
+            {filteredArrivals.length} {filteredArrivals.length === 1 ? 'vehicle' : 'vehicles'}
+            {activeFilter !== 'all' && ` (${arrivals.length} total)`}
           </ThemedText>
         </View>
 
-        {arrivals.length === 0 ? (
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterScrollContent}>
+            {filterTabs.map((filter) => {
+              const isActive = activeFilter === filter.key;
+              return (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[
+                    styles.filterTab,
+                    {
+                      backgroundColor: isActive ? tintColor : colors.cardBackground,
+                      borderColor: isActive ? tintColor : colors.cardBorder,
+                    },
+                  ]}
+                  onPress={() => {
+                    setActiveFilter(filter.key);
+                  }}
+                  activeOpacity={0.7}>
+                  <ThemedText
+                    style={[
+                      styles.filterTabText,
+                      {
+                        color: isActive ? '#fff' : colors.text,
+                        fontWeight: isActive ? '600' : '500',
+                      },
+                    ]}>
+                    {filter.label}
+                  </ThemedText>
+                  <View
+                    style={[
+                      styles.filterBadge,
+                      {
+                        backgroundColor: isActive ? '#fff' + '30' : colors.text + '20',
+                      },
+                    ]}>
+                    <ThemedText
+                      style={[
+                        styles.filterBadgeText,
+                        {
+                          color: isActive ? '#fff' : colors.text,
+                        },
+                      ]}>
+                      {filter.count}
+                    </ThemedText>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {filteredArrivals.length === 0 ? (
           <View style={[styles.emptyContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <ThemedText style={styles.emptyText}>No arrivals recorded yet</ThemedText>
+            <MaterialIcons
+              name={arrivals.length === 0 ? 'directions-car' : 'filter-list'}
+              size={64}
+              color={colors.text + '40'}
+            />
+            <ThemedText style={styles.emptyText}>
+              {arrivals.length === 0
+                ? 'No vehicles recorded yet'
+                : `No vehicles with status "${filterTabs.find((f) => f.key === activeFilter)?.label}"`}
+            </ThemedText>
             <ThemedText style={styles.emptySubtext}>
-              Start scanning QR codes to record vehicle arrivals
+              {arrivals.length === 0
+                ? 'Start scanning QR codes to record vehicle arrivals'
+                : 'Try selecting a different filter'}
             </ThemedText>
           </View>
         ) : (
           <FlatList
-            data={arrivals}
+            data={filteredArrivals}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
             contentContainerStyle={[
@@ -367,7 +474,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 24,
-    paddingBottom: 16,
+    paddingBottom: 12,
   },
   title: {
     marginBottom: 4,
@@ -375,6 +482,40 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     opacity: 0.7,
+  },
+  filterContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  filterScrollContent: {
+    gap: 8,
+    paddingRight: 24,
+  },
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 8,
+    marginRight: 8,
+  },
+  filterTabText: {
+    fontSize: 14,
+  },
+  filterBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   listContent: {
     padding: 12,

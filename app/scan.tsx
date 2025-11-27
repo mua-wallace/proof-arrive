@@ -16,6 +16,7 @@ export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
   const tintColor = useThemeColor({}, 'tint');
   const insets = useSafeAreaInsets();
 
@@ -26,20 +27,21 @@ export default function ScanScreen() {
 
   const handleRequestPermission = async () => {
     try {
+      setPermissionError(null);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const result = await requestPermission();
       if (!result.granted) {
-        Alert.alert(
-          'Permission Denied',
-          'Camera permission is required to scan QR codes. Please enable it in your device settings.',
-          [{ text: 'OK' }]
-        );
+        if (!result.canAskAgain) {
+          setPermissionError(
+            'Camera permission was denied. Please enable it in your device settings to scan QR codes.'
+          );
+        } else {
+          setPermissionError('Camera permission is required to scan QR codes. Please grant permission.');
+        }
       }
     } catch (error) {
-      Alert.alert(
-        'Permission Error',
-        'Failed to request camera permission. Please try again.',
-        [{ text: 'OK' }]
+      setPermissionError(
+        error instanceof Error ? error.message : 'Failed to request camera permission. Please try again.'
       );
     }
   };
@@ -142,8 +144,29 @@ export default function ScanScreen() {
               Camera Permission Required
             </ThemedText>
             <ThemedText style={styles.message}>
-              Please grant camera permission to scan QR codes
+              ProofArrive needs access to your camera to scan QR codes on vehicles. This allows us to:
             </ThemedText>
+            <View style={styles.reasonsList}>
+              <View style={styles.reasonItem}>
+                <ThemedText style={styles.reasonBullet}>•</ThemedText>
+                <ThemedText style={styles.reasonText}>Record vehicle arrivals accurately</ThemedText>
+              </View>
+              <View style={styles.reasonItem}>
+                <ThemedText style={styles.reasonBullet}>•</ThemedText>
+                <ThemedText style={styles.reasonText}>Track vehicle movements through the center</ThemedText>
+              </View>
+              <View style={styles.reasonItem}>
+                <ThemedText style={styles.reasonBullet}>•</ThemedText>
+                <ThemedText style={styles.reasonText}>Verify vehicle identity via QR codes</ThemedText>
+              </View>
+            </View>
+            
+            {permissionError && (
+              <View style={styles.errorContainer}>
+                <ThemedText style={styles.errorText}>{permissionError}</ThemedText>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.button, { backgroundColor: tintColor }]}
               onPress={handleRequestPermission}
@@ -152,6 +175,12 @@ export default function ScanScreen() {
                 Grant Permission
               </ThemedText>
             </TouchableOpacity>
+
+            {!permission?.canAskAgain && (
+              <ThemedText style={styles.settingsHint}>
+                If permission was denied, please enable it in your device Settings → ProofArrive → Camera
+              </ThemedText>
+            )}
           </View>
         </ScrollView>
       </ThemedView>
@@ -295,6 +324,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 24,
   },
   permissionContainer: {
     alignItems: 'center',
@@ -307,10 +337,48 @@ const styles = StyleSheet.create({
   },
   message: {
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
     paddingHorizontal: 20,
     fontSize: 16,
     lineHeight: 24,
+    opacity: 0.8,
+  },
+  reasonsList: {
+    width: '100%',
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  reasonItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  reasonBullet: {
+    fontSize: 16,
+    marginRight: 12,
+    marginTop: 2,
+    opacity: 0.7,
+  },
+  reasonText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 22,
+    opacity: 0.8,
+  },
+  errorContainer: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#FF5252' + '20',
+    borderWidth: 1,
+    borderColor: '#FF5252',
+    marginBottom: 20,
+  },
+  errorText: {
+    color: '#FF5252',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   button: {
     paddingHorizontal: 32,
@@ -318,10 +386,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: 200,
     alignItems: 'center',
+    marginBottom: 16,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  settingsHint: {
+    textAlign: 'center',
+    fontSize: 12,
+    opacity: 0.6,
+    paddingHorizontal: 20,
+    lineHeight: 18,
   },
 });
 

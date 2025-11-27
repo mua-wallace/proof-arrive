@@ -26,8 +26,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="list"
         options={{
-          title: 'Scanned List',
-          tabBarIcon: ({ color }) => <MaterialIcons name="list" size={28} color={color} />,
+          title: 'Vehicles',
+          tabBarIcon: ({ color }) => <MaterialIcons name="directions-car" size={28} color={color} />,
         }}
       />
       <Tabs.Screen
