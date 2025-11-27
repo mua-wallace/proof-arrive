@@ -14,12 +14,16 @@ import { checkAndSync } from '@/services/sync';
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
+const MINIMUM_SPLASH_DURATION = 10000; // 10 seconds in milliseconds
+
 function AppContent() {
   const { colorScheme } = useThemeContext();
   const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
     async function prepare() {
+      const startTime = Date.now();
+      
       try {
         // Initialize database on app start
         await initDatabase();
@@ -28,6 +32,15 @@ function AppContent() {
       } catch (e) {
         console.warn(e);
       } finally {
+        // Calculate elapsed time
+        const elapsedTime = Date.now() - startTime;
+        const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
+        
+        // Wait for remaining time if needed
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+        
         // Set app as ready
         setAppIsReady(true);
         // Hide splash screen

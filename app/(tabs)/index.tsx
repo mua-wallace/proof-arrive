@@ -1,6 +1,7 @@
-import { StyleSheet, TouchableOpacity } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -11,6 +12,7 @@ const TABS = ['index', 'list', 'profile'];
 
 export default function ScanTabScreen() {
   const tintColor = useThemeColor({}, 'tint');
+  const insets = useSafeAreaInsets();
 
   const handleStartScanning = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -20,28 +22,38 @@ export default function ScanTabScreen() {
   return (
     <SwipeableTab currentTab="index" tabs={TABS}>
       <ThemedView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedText type="title" style={styles.welcomeTitle}>
-          ProofArrive
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Vehicle arrival tracking system
-        </ThemedText>
-        <ThemedView style={[styles.divider, { backgroundColor: tintColor }]} />
-        <ThemedText style={styles.description}>
-          Scan QR codes to record vehicle arrivals and track operations
-        </ThemedText>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top, 24),
+              paddingBottom: Math.max(insets.bottom, 24),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <ThemedView style={styles.content}>
+            <ThemedText type="title" style={styles.welcomeTitle}>
+              ProofArrive
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Vehicle arrival tracking system
+            </ThemedText>
+            <ThemedView style={[styles.divider, { backgroundColor: tintColor }]} />
+            <ThemedText style={styles.description}>
+              Scan QR codes to record vehicle arrivals and track operations
+            </ThemedText>
 
-        <TouchableOpacity
-          style={[styles.scanButton, { backgroundColor: tintColor }]}
-          onPress={handleStartScanning}
-          activeOpacity={0.8}>
-          <ThemedText style={styles.scanButtonText} lightColor="#fff" darkColor="#fff">
-            Start Scanning
-          </ThemedText>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.scanButton, { backgroundColor: tintColor }]}
+              onPress={handleStartScanning}
+              activeOpacity={0.8}>
+              <ThemedText style={styles.scanButtonText} lightColor="#fff" darkColor="#fff">
+                Start Scanning
+              </ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </ScrollView>
       </ThemedView>
-    </ThemedView>
     </SwipeableTab>
   );
 }
@@ -49,9 +61,12 @@ export default function ScanTabScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 24,
   },
   content: {
     alignItems: 'center',

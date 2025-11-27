@@ -1,6 +1,7 @@
 import { StyleSheet, View, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -15,6 +16,7 @@ export default function ProfileScreen() {
   const tintColor = useThemeColor({}, 'tint');
   const colors = useThemeColors();
   const { themeMode, setThemeMode, isDark } = useThemeContext();
+  const insets = useSafeAreaInsets();
 
   const handleSync = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -31,7 +33,15 @@ export default function ProfileScreen() {
   return (
     <SwipeableTab currentTab="profile" tabs={TABS}>
       <ThemedView style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top, 24),
+              paddingBottom: Math.max(insets.bottom, 24),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={[styles.avatar, { backgroundColor: tintColor + '20' }]}>
             <ThemedText style={styles.avatarText} lightColor={tintColor} darkColor={tintColor}>

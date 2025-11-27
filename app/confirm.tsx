@@ -87,7 +87,7 @@ function ConfirmScreen() {
   };
 
   const handleDone = () => {
-    router.replace('/');
+    router.replace('/(tabs)/list');
   };
 
   const handleScanAnother = () => {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, FlatList, View, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
@@ -26,6 +27,7 @@ export default function ScannedListScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const tintColor = useThemeColor({}, 'tint');
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadArrivals();
@@ -197,34 +199,37 @@ export default function ScannedListScreen() {
   return (
     <SwipeableTab currentTab="list" tabs={TABS}>
       <ThemedView style={styles.container}>
-        <View style={styles.header}>
-        <ThemedText type="title" style={styles.title}>
-          Scanned Arrivals
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>
-          {arrivals.length} {arrivals.length === 1 ? 'record' : 'records'}
-        </ThemedText>
-      </View>
-
-      {arrivals.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <ThemedText style={styles.emptyText}>No arrivals recorded yet</ThemedText>
-          <ThemedText style={styles.emptySubtext}>
-            Start scanning QR codes to record vehicle arrivals
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 24) }]}>
+          <ThemedText type="title" style={styles.title}>
+            Scanned Arrivals
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            {arrivals.length} {arrivals.length === 1 ? 'record' : 'records'}
           </ThemedText>
         </View>
-      ) : (
-        <FlatList
-          data={arrivals}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tintColor} />
-          }
-        />
-      )}
-    </ThemedView>
+
+        {arrivals.length === 0 ? (
+          <View style={[styles.emptyContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+            <ThemedText style={styles.emptyText}>No arrivals recorded yet</ThemedText>
+            <ThemedText style={styles.emptySubtext}>
+              Start scanning QR codes to record vehicle arrivals
+            </ThemedText>
+          </View>
+        ) : (
+          <FlatList
+            data={arrivals}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: Math.max(insets.bottom, 12) },
+            ]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tintColor} />
+            }
+          />
+        )}
+      </ThemedView>
     </SwipeableTab>
   );
 }

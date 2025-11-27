@@ -10,7 +10,7 @@ export function CustomSplashScreen() {
       style={[
         styles.container,
         {
-          backgroundColor: isDark ? '#151718' : '#0a7ea4',
+          backgroundColor: isDark ? '#151718' : '#E6F4FE',
         },
       ]}>
       <View style={styles.content}>
@@ -18,7 +18,7 @@ export function CustomSplashScreen() {
           style={[
             styles.title,
             {
-              color: isDark ? '#ECEDEE' : '#FFFFFF',
+              color: isDark ? '#ECEDEE' : '#0a7ea4',
             },
           ]}>
           ProofArrive
@@ -27,7 +27,7 @@ export function CustomSplashScreen() {
           style={[
             styles.subtitle,
             {
-              color: isDark ? '#9BA1A6' : '#E3F2FD',
+              color: isDark ? '#9BA1A6' : '#0a7ea4',
             },
           ]}>
           Track vehicle arrivals{'\n'}with precision
