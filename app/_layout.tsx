@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { ThemeContextProvider, useThemeContext } from '@/contexts/theme-context';
 import { CustomSplashScreen } from '@/components/splash-screen';
+import { ThemeContextProvider, useThemeContext } from '@/contexts/theme-context';
 import { initDatabase } from '@/services/storage';
 import { checkAndSync } from '@/services/sync';
 
@@ -32,11 +32,11 @@ function AppContent() {
       } catch (e) {
         console.warn(e);
       } finally {
-        // Calculate elapsed time
+        // Always ensure minimum 10 seconds total for users to read the message
         const elapsedTime = Date.now() - startTime;
         const remainingTime = Math.max(0, MINIMUM_SPLASH_DURATION - elapsedTime);
         
-        // Wait for remaining time if needed
+        // Wait for remaining time to ensure full 10 seconds
         if (remainingTime > 0) {
           await new Promise(resolve => setTimeout(resolve, remainingTime));
         }
