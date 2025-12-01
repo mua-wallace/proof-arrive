@@ -8,8 +8,11 @@ import 'react-native-reanimated';
 
 import { CustomSplashScreen } from '@/components/splash-screen';
 import { ThemeContextProvider, useThemeContext } from '@/contexts/theme-context';
+import { AuthService } from '@/services/auth-service';
 import { initDatabase } from '@/services/storage';
 import { checkAndSync } from '@/services/sync';
+import { parseErrorMessage } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -30,10 +33,27 @@ function AppContent() {
       try {
         // Initialize database on app start
         await initDatabase();
+        
+        // Check for stored credentials and verify them
+        try {
+          const user = await AuthService.verifyStoredCredentials();
+          if (user) {
+            logger.log('✅ Auto-login successful for:', user.loginUsername);
+          }
+        } catch (authError) {
+          logger.error('Auto-login verification failed:', parseErrorMessage(authError));
+          // Continue app initialization even if auth check fails
+        }
+        
         // Try to sync any pending records when app starts
-        await checkAndSync();
+        try {
+          await checkAndSync();
+        } catch (syncError) {
+          logger.error('Initial sync failed:', parseErrorMessage(syncError));
+          // Continue app initialization even if sync fails
+        }
       } catch (e) {
-        console.warn(e);
+        logger.error('App initialization error:', parseErrorMessage(e));
       } finally {
         // Always ensure minimum 10 seconds total for users to read the message
         const elapsedTime = Date.now() - startTime;

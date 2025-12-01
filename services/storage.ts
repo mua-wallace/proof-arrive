@@ -1,5 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 
+import { logger } from '@/utils/logger';
+
 const DB_NAME = 'proofarrive.db';
 
 let db: SQLite.SQLiteDatabase | null = null;
@@ -35,7 +37,7 @@ async function runMigration(database: SQLite.SQLiteDatabase): Promise<void> {
       return;
     }
     
-    console.log('Migrating database schema...');
+    logger.log('Migrating database schema...');
     
     // Batch all ALTER TABLE statements in a single transaction for better performance
     await database.withTransactionAsync(async () => {
@@ -60,7 +62,7 @@ async function runMigration(database: SQLite.SQLiteDatabase): Promise<void> {
         } catch (e: any) {
           // Column may already exist, ignore error
           if (!e?.message?.includes('duplicate column')) {
-            console.log(`${column.name} column may already exist`);
+            logger.log(`${column.name} column may already exist`);
           }
         }
       }
@@ -74,14 +76,14 @@ async function runMigration(database: SQLite.SQLiteDatabase): Promise<void> {
           WHERE status IS NULL OR status = '';
         `);
       } catch (e) {
-        console.log('Error updating existing records:', e);
+        logger.error('Error updating existing records:', e instanceof Error ? e.message : String(e));
       }
     });
     
     migrationCompleted = true;
-    console.log('Database migration completed');
+    logger.log('Database migration completed');
   } catch (error) {
-    console.error('Migration error:', error);
+    logger.error('Migration error:', error instanceof Error ? error.message : String(error));
   } finally {
     migrationInProgress = false;
   }

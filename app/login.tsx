@@ -1,20 +1,23 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
+  TouchableOpacity
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
+import { AuthService } from '@/services/auth-service';
+import { AuthError, isNetworkError, NetworkError, parseErrorMessage as parseError } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -26,6 +29,10 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [generalError, setGeneralError] = useState<string | null>(null);
+  const [invalidCredentials, setInvalidCredentials] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const passwordInputRef = useRef<TextInput>(null);
 
@@ -33,27 +40,190 @@ export default function LoginScreen() {
     router.push('/forgot-password');
   };
 
-  const handleLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert('Required', 'Please enter your email or username');
-      return;
+  const clearErrors = () => {
+    setEmailError(null);
+    setPasswordError(null);
+    setGeneralError(null);
+    setInvalidCredentials(false);
+  };
+
+  const handleEmailChange = (text: string) => {
+    try {
+      setEmail(text);
+      if (emailError) setEmailError(null);
+      if (passwordError) setPasswordError(null);
+      if (generalError) setGeneralError(null);
+      if (invalidCredentials) setInvalidCredentials(false);
+    } catch (error) {
+      // Prevent crashes from state updates
+      logger.error('Error updating email:', parseError(error));
+    }
+  };
+
+  const handlePasswordChange = (text: string) => {
+    try {
+      setPassword(text);
+      if (emailError) setEmailError(null);
+      if (passwordError) setPasswordError(null);
+      if (generalError) setGeneralError(null);
+      if (invalidCredentials) setInvalidCredentials(false);
+    } catch (error) {
+      // Prevent crashes from state updates
+      logger.error('Error updating password:', parseError(error));
+    }
+  };
+
+  const parseErrorMessage = (error: unknown): { field: 'email' | 'password' | 'general' | 'both'; message: string } => {
+    const errorMessage = parseError(error);
+    const lowerMessage = errorMessage.toLowerCase();
+
+    // Handle specific error types
+    if (error instanceof NetworkError || isNetworkError(error)) {
+      return { field: 'general', message: 'Network error. Please check your connection and try again.' };
     }
 
+    if (error instanceof AuthError) {
+      // Check if it's a username specific error
+      if (lowerMessage.includes('username') || lowerMessage.includes('user')) {
+        if (!lowerMessage.includes('password') && !lowerMessage.includes('credential')) {
+          return { field: 'email', message: errorMessage || 'Invalid username' };
+        }
+      }
+      // Check if it's a password specific error
+      if (lowerMessage.includes('password') && !lowerMessage.includes('username') && !lowerMessage.includes('user')) {
+        return { field: 'password', message: errorMessage || 'Invalid password' };
+      }
+      // Default auth error - invalid credentials affects both fields
+      return { field: 'both', message: 'Invalid credentials' };
+    }
+
+    // Check for specific error patterns in message
+    if (lowerMessage.includes('invalid credential') || lowerMessage.includes('invalid username') || lowerMessage.includes('invalid password')) {
+      return { field: 'both', message: 'Invalid credentials' };
+    }
+    if (lowerMessage.includes('username') || lowerMessage.includes('user')) {
+      if (!lowerMessage.includes('password') && !lowerMessage.includes('credential')) {
+        return { field: 'email', message: 'Invalid username' };
+      }
+    }
+    if (lowerMessage.includes('password') && !lowerMessage.includes('username') && !lowerMessage.includes('email')) {
+      return { field: 'password', message: 'Invalid password' };
+    }
+    if (lowerMessage.includes('timeout')) {
+      return { field: 'general', message: 'Request timed out. Please try again.' };
+    }
+
+    // Default to both fields for credential errors
+    if (lowerMessage.includes('credential') || lowerMessage.includes('login') || lowerMessage.includes('authentication')) {
+      return { field: 'both', message: 'Invalid credentials' };
+    }
+
+    // Default to general error with user-friendly message
+    return { field: 'general', message: errorMessage || 'An error occurred. Please try again.' };
+  };
+
+  const handleLogin = async () => {
+    clearErrors();
+
+    // Validate inputs
+    let hasErrors = false;
+    if (!email.trim()) {
+      setEmailError('Username is required');
+      hasErrors = true;
+    }
     if (!password.trim()) {
-      Alert.alert('Required', 'Please enter your password');
+      setPasswordError('Password is required');
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // Scroll to first error
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
     setIsLoading(true);
     try {
-      // TODO: Implement actual authentication
-      // For now, simulate a login delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const user = await AuthService.login({
+        username: email.trim(),
+        password: password.trim(),
+      });
+
+      // AuthService.login() throws on error, so if we get here, login was successful
+      try {
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Success
+        );
+      } catch (hapticError) {
+        // Ignore haptic errors - not critical
+      }
       
       // Navigate to main app
       router.replace('/(tabs)');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to login. Please try again.');
+    } catch (error: unknown) {
+      // Safely handle haptic feedback
+      try {
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Error
+        );
+      } catch {
+        // Ignore haptic errors
+      }
+
+      // Safely parse and display error
+      try {
+        const { field, message } = parseErrorMessage(error);
+
+        if (field === 'email') {
+          setEmailError(message);
+          // Focus email field
+          setTimeout(() => {
+            try {
+              scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            } catch {
+              // Ignore scroll errors
+            }
+          }, 100);
+        } else if (field === 'password') {
+          setPasswordError(message);
+          // Focus password field
+          setTimeout(() => {
+            try {
+              passwordInputRef.current?.focus();
+              scrollViewRef.current?.scrollTo({ y: 200, animated: true });
+            } catch {
+              // Ignore focus/scroll errors
+            }
+          }, 100);
+        } else if (field === 'both') {
+          // Invalid credentials - highlight both fields
+          setInvalidCredentials(true);
+          setPasswordError(message);
+          // Scroll to password field to show error message
+          setTimeout(() => {
+            try {
+              passwordInputRef.current?.focus();
+              scrollViewRef.current?.scrollTo({ y: 200, animated: true });
+            } catch {
+              // Ignore focus/scroll errors
+            }
+          }, 100);
+        } else {
+          setGeneralError(message);
+          // Scroll to top to show general error
+          setTimeout(() => {
+            try {
+              scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            } catch {
+              // Ignore scroll errors
+            }
+          }, 100);
+        }
+      } catch (parseError) {
+        // Fallback error handling if parsing fails
+        setGeneralError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -111,39 +281,67 @@ export default function LoginScreen() {
             </ThemedText>
           </ThemedView>
 
+          {/* General Error Message */}
+          {generalError && (
+            <ThemedView
+              style={[
+                styles.errorBanner,
+                {
+                  backgroundColor: '#FF5252' + '15',
+                  borderColor: '#FF5252',
+                },
+              ]}>
+              <MaterialIcons name="error-outline" size={20} color="#FF5252" />
+              <ThemedText style={[styles.errorBannerText, { color: '#FF5252' }]}>
+                {generalError}
+              </ThemedText>
+            </ThemedView>
+          )}
+
           {/* Form */}
           <ThemedView style={styles.form}>
             <ThemedView style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Email or Username</ThemedText>
+              <ThemedText style={styles.label}>Username</ThemedText>
               <ThemedView
                 style={[
                   styles.inputWrapper,
                   {
                     backgroundColor: colors.cardBackground,
-                    borderColor: colors.cardBorder,
+                    borderColor: (emailError || invalidCredentials) ? '#FF5252' : colors.cardBorder,
+                    borderWidth: (emailError || invalidCredentials) ? 2 : 1,
                   },
                 ]}>
                 <MaterialIcons
-                  name="email"
+                  name="person"
                   size={20}
-                  color={colors.icon}
+                  color={(emailError || invalidCredentials) ? '#FF5252' : colors.icon}
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
-                  placeholder="Enter your email or username"
+                  placeholder="Enter your username"
                   placeholderTextColor={colors.text + '60'}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={handleEmailChange}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  keyboardType="email-address"
+                  keyboardType="default"
                   returnKeyType="next"
                   editable={!isLoading}
                   onSubmitEditing={() => passwordInputRef.current?.focus()}
                   blurOnSubmit={false}
                 />
+                {(emailError || invalidCredentials) && (
+                  <MaterialIcons name="error-outline" size={20} color="#FF5252" style={styles.errorIcon} />
+                )}
               </ThemedView>
+              {emailError && (
+                <ThemedView style={styles.errorMessageContainer}>
+                  <ThemedText style={[styles.errorMessage, { color: '#FF5252' }]}>
+                    {emailError}
+                  </ThemedText>
+                </ThemedView>
+              )}
             </ThemedView>
 
             <ThemedView style={styles.inputContainer}>
@@ -153,13 +351,14 @@ export default function LoginScreen() {
                   styles.inputWrapper,
                   {
                     backgroundColor: colors.cardBackground,
-                    borderColor: colors.cardBorder,
+                    borderColor: (passwordError || invalidCredentials) ? '#FF5252' : colors.cardBorder,
+                    borderWidth: (passwordError || invalidCredentials) ? 2 : 1,
                   },
                 ]}>
                 <MaterialIcons
                   name="lock-outline"
                   size={20}
-                  color={colors.icon}
+                  color={(passwordError || invalidCredentials) ? '#FF5252' : colors.icon}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -168,7 +367,7 @@ export default function LoginScreen() {
                   placeholder="Enter your password"
                   placeholderTextColor={colors.text + '60'}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -176,17 +375,28 @@ export default function LoginScreen() {
                   onSubmitEditing={handleLogin}
                   editable={!isLoading}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeIcon}
-                  activeOpacity={0.7}>
-                  <MaterialIcons
-                    name={showPassword ? 'visibility' : 'visibility-off'}
-                    size={20}
-                    color={colors.icon}
-                  />
-                </TouchableOpacity>
+                {(passwordError || invalidCredentials) ? (
+                  <MaterialIcons name="error-outline" size={20} color="#FF5252" style={styles.errorIcon} />
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeIcon}
+                    activeOpacity={0.7}>
+                    <MaterialIcons
+                      name={showPassword ? 'visibility' : 'visibility-off'}
+                      size={20}
+                      color={colors.icon}
+                    />
+                  </TouchableOpacity>
+                )}
               </ThemedView>
+              {passwordError && (
+                <ThemedView style={styles.errorMessageContainer}>
+                  <ThemedText style={[styles.errorMessage, { color: '#FF5252' }]}>
+                    {passwordError}
+                  </ThemedText>
+                </ThemedView>
+              )}
             </ThemedView>
 
             {/* Forgot Password Link */}
@@ -280,6 +490,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+    gap: 8,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -291,6 +515,9 @@ const styles = StyleSheet.create({
   inputIcon: {
     marginRight: 12,
   },
+  errorIcon: {
+    marginLeft: 8,
+  },
   input: {
     flex: 1,
     fontSize: 16,
@@ -299,6 +526,14 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 4,
     marginLeft: 8,
+  },
+  errorMessageContainer: {
+    marginTop: 6,
+    marginLeft: 4,
+  },
+  errorMessage: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   forgotPasswordContainer: {
     alignItems: 'flex-end',

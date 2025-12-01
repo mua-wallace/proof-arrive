@@ -11,6 +11,8 @@ import { getAllArrivals } from '@/services/storage';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { SwipeableTab } from '@/components/swipeable-tab';
 import { VehicleStatus } from '@/types/arrival';
+import { parseErrorMessage } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 const TABS = ['index', 'list', 'profile'];
 
@@ -58,7 +60,10 @@ export default function ScannedListScreen() {
       setArrivals(data);
       applyFilter(data, activeFilter);
     } catch (error) {
-      console.error('Failed to load arrivals:', error);
+      logger.error('Failed to load arrivals:', parseErrorMessage(error));
+      // Set empty array on error to prevent UI issues
+      setArrivals([]);
+      setFilteredArrivals([]);
     } finally {
       setLoading(false);
     }

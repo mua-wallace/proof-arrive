@@ -9,3 +9,7 @@ export const DEFAULT_CENTER_ID = 'CENTER-001';
 // For now, using a default value
 export const DEFAULT_AGENT_ID = 'AGENT-001';
 
+// API Configuration
+// You can override this in app.json under extra.apiUrl
+export const API_BASE_URL = 'https://malambi.net/Helper';
+

@@ -1,6 +1,8 @@
 import * as Network from 'expo-network';
-import { getUnsyncedArrivals, markAsSynced } from './storage';
 import { VehicleArrivalRecord } from '@/types/arrival';
+import { logger } from '@/utils/logger';
+
+import { getUnsyncedArrivals, markAsSynced } from './storage';
 
 // This is a placeholder for the actual API endpoint
 // In production, replace this with your backend API URL
@@ -68,7 +70,7 @@ export async function syncArrivals(): Promise<number> {
       await markAsSynced(arrival.id);
       syncedCount++;
     } catch (error) {
-      console.error(`Failed to sync arrival ${arrival.id}:`, error);
+      logger.error(`Failed to sync arrival ${arrival.id}:`, error instanceof Error ? error.message : String(error));
       // Continue with next record
     }
   }
@@ -80,10 +82,10 @@ export async function checkAndSync(): Promise<void> {
   try {
     const syncedCount = await syncArrivals();
     if (syncedCount > 0) {
-      console.log(`Synced ${syncedCount} arrival record(s)`);
+      logger.log(`Synced ${syncedCount} arrival record(s)`);
     }
   } catch (error) {
-    console.error('Sync error:', error);
+    logger.error('Sync error:', error instanceof Error ? error.message : String(error));
   }
 }
 

@@ -11,6 +11,9 @@ import { ThemedView } from '@/components/themed-view';
 import { DEFAULT_AGENT_ID, DEFAULT_CENTER_ID } from '@/constants/config';
 import { useThemeContext } from '@/contexts/theme-context';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
+import { AuthService } from '@/services/auth-service';
+import { parseErrorMessage } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 const TABS = ['index', 'list', 'profile'];
 
@@ -43,10 +46,19 @@ export default function ProfileScreen() {
   const confirmLogout = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowLogoutModal(false);
-    // TODO: Clear any authentication tokens/session data here
-    // Navigate to HomeScreen (root index)
-    router.dismissAll();
-    router.replace('/' as any);
+    
+    try {
+      // Logout from API and clear local data
+      await AuthService.logout();
+      // Navigate to HomeScreen (root index)
+      router.dismissAll();
+      router.replace('/' as any);
+    } catch (error) {
+      logger.error('Logout error:', parseErrorMessage(error));
+      // Even if logout fails, navigate to home
+      router.dismissAll();
+      router.replace('/' as any);
+    }
   };
 
   const cancelLogout = () => {
