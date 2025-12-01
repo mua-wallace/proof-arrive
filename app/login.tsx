@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
@@ -26,6 +26,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
     if (!email.trim()) {
@@ -56,7 +58,9 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoidingView}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      enabled>
       <ThemedView style={styles.container}>
         {/* Back Button - Fixed at top */}
         <TouchableOpacity
@@ -66,12 +70,19 @@ export default function LoginScreen() {
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
+            { 
+              paddingTop: insets.top + 20, 
+              paddingBottom: Math.max(insets.bottom, 100) // Extra padding for keyboard
+            },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentInsetAdjustmentBehavior="automatic">
           {/* Header */}
           <ThemedView style={styles.header}>
             <ThemedView
@@ -125,6 +136,8 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   returnKeyType="next"
                   editable={!isLoading}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
               </ThemedView>
             </ThemedView>
@@ -146,6 +159,7 @@ export default function LoginScreen() {
                   style={styles.inputIcon}
                 />
                 <TextInput
+                  ref={passwordInputRef}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="Enter your password"
                   placeholderTextColor={colors.text + '60'}
@@ -217,7 +231,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    minHeight: '100%',
   },
   header: {
     alignItems: 'center',

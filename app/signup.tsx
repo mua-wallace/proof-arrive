@@ -1,16 +1,19 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
     Alert,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,6 +31,11 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const lastNameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,21 +86,19 @@ export default function SignupScreen() {
       // For now, simulate a signup delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      Alert.alert(
-        'Success',
-        'Account created successfully! You can now sign in.',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/login'),
-          },
-        ]
-      );
+      // Show success modal with haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowSuccessModal(true);
     } catch (error) {
       Alert.alert('Error', 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSuccessModalClose = () => {
+    setShowSuccessModal(false);
+    router.replace('/login');
   };
 
   const isFormValid = () => {
@@ -107,10 +113,13 @@ export default function SignupScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoidingView}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ThemedView style={styles.container}>
+    <>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        enabled>
+        <ThemedView style={styles.container}>
         {/* Back Button - Fixed at top */}
         <TouchableOpacity
           onPress={() => router.back()}
@@ -119,12 +128,19 @@ export default function SignupScreen() {
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
+            { 
+              paddingTop: insets.top + 20, 
+              paddingBottom: Math.max(insets.bottom, 100) // Extra padding for keyboard
+            },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentInsetAdjustmentBehavior="automatic">
           {/* Header */}
           <ThemedView style={styles.header}>
             <ThemedView
@@ -177,6 +193,8 @@ export default function SignupScreen() {
                     autoCapitalize="words"
                     returnKeyType="next"
                     editable={!isLoading}
+                    onSubmitEditing={() => lastNameInputRef.current?.focus()}
+                    blurOnSubmit={false}
                   />
                 </ThemedView>
               </ThemedView>
@@ -198,6 +216,7 @@ export default function SignupScreen() {
                     style={styles.inputIcon}
                   />
                   <TextInput
+                    ref={lastNameInputRef}
                     style={[styles.input, { color: colors.text }]}
                     placeholder="Last name"
                     placeholderTextColor={colors.text + '60'}
@@ -206,6 +225,8 @@ export default function SignupScreen() {
                     autoCapitalize="words"
                     returnKeyType="next"
                     editable={!isLoading}
+                    onSubmitEditing={() => emailInputRef.current?.focus()}
+                    blurOnSubmit={false}
                   />
                 </ThemedView>
               </ThemedView>
@@ -228,6 +249,7 @@ export default function SignupScreen() {
                   style={styles.inputIcon}
                 />
                 <TextInput
+                  ref={emailInputRef}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="Enter your email"
                   placeholderTextColor={colors.text + '60'}
@@ -238,6 +260,8 @@ export default function SignupScreen() {
                   keyboardType="email-address"
                   returnKeyType="next"
                   editable={!isLoading}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  blurOnSubmit={false}
                 />
               </ThemedView>
             </ThemedView>
@@ -259,6 +283,7 @@ export default function SignupScreen() {
                   style={styles.inputIcon}
                 />
                 <TextInput
+                  ref={passwordInputRef}
                   style={[styles.input, { color: colors.text }]}
                   placeholder="Create a password (min. 6 characters)"
                   placeholderTextColor={colors.text + '60'}
@@ -320,6 +345,39 @@ export default function SignupScreen() {
         </ScrollView>
       </ThemedView>
     </KeyboardAvoidingView>
+
+    {/* Success Modal */}
+    <Modal
+      visible={showSuccessModal}
+      transparent
+      animationType="fade"
+      onRequestClose={handleSuccessModalClose}>
+      <View style={styles.modalOverlay}>
+        <ThemedView style={styles.successModalContent}>
+          <View style={[styles.successIconContainer, { backgroundColor: '#4CAF50' + '20' }]}>
+            <MaterialIcons name="check-circle" size={72} color="#4CAF50" />
+          </View>
+
+          <ThemedText type="title" style={styles.successModalTitle}>
+            Account Created!
+          </ThemedText>
+
+          <ThemedText style={styles.successModalMessage}>
+            Your account has been created successfully. You can now sign in to continue using ProofArrive.
+          </ThemedText>
+
+          <TouchableOpacity
+            style={[styles.successModalButton, { backgroundColor: tintColor }]}
+            onPress={handleSuccessModalClose}
+            activeOpacity={0.8}>
+            <ThemedText style={styles.successModalButtonText} lightColor="#fff" darkColor="#fff">
+              Sign In
+            </ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -333,7 +391,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    minHeight: '100%',
   },
   header: {
     alignItems: 'center',
@@ -440,6 +499,64 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  // Success Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  successModalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  successIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  successModalTitle: {
+    marginBottom: 12,
+    textAlign: 'center',
+    fontSize: 26,
+    fontWeight: '700',
+  },
+  successModalMessage: {
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 24,
+    opacity: 0.8,
+    marginBottom: 32,
+    paddingHorizontal: 8,
+  },
+  successModalButton: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  successModalButtonText: {
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
 });
 

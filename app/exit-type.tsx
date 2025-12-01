@@ -51,16 +51,23 @@ export default function ExitTypeScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.keyboardAvoidingView}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      enabled>
       <ThemedView style={styles.container}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top, 24), paddingBottom: Math.max(insets.bottom, 24) },
+            { 
+              paddingTop: Math.max(insets.top, 24), 
+              paddingBottom: Math.max(insets.bottom, 100) // Extra padding for keyboard
+            },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          keyboardDismissMode="interactive"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          contentInsetAdjustmentBehavior="automatic">
           <ThemedText type="title" style={styles.title}>
             Exit Type
           </ThemedText>
@@ -186,7 +193,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 24,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    minHeight: '100%',
   },
   title: {
     textAlign: 'center',

@@ -1,5 +1,28 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Animated, Dimensions, Easing, PixelRatio, StyleSheet, Text, useColorScheme, View } from 'react-native';
+
+// Get screen dimensions
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Calculate responsive scale factor based on screen size
+// Base scale for a standard phone (375x812 - iPhone X)
+const BASE_WIDTH = 375;
+const BASE_HEIGHT = 812;
+const scale = Math.min(SCREEN_WIDTH / BASE_WIDTH, SCREEN_HEIGHT / BASE_HEIGHT);
+const fontScale = PixelRatio.getFontScale();
+
+// Responsive font size function
+const scaleFont = (size: number) => {
+  const scaledSize = size * scale;
+  // Normalize font scale to prevent too large/small fonts
+  const normalizedFontScale = Math.max(0.8, Math.min(1.2, fontScale));
+  return Math.round(scaledSize * normalizedFontScale);
+};
+
+// Responsive spacing function
+const scaleSpacing = (size: number) => {
+  return Math.round(size * scale);
+};
 
 export function CustomSplashScreen() {
   const colorScheme = useColorScheme();
@@ -141,57 +164,63 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: scaleSpacing(40),
     zIndex: 9999,
   },
   content: {
     width: '100%',
-    maxWidth: 600,
+    maxWidth: scaleSpacing(600),
     alignItems: 'center',
   },
   titleContainer: {
-    marginBottom: 24,
+    marginBottom: scaleSpacing(24),
   },
   title: {
-    fontSize: 48,
+    fontSize: scaleFont(40), // Responsive title size
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
     textAlign: 'center',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   subtitleContainer: {
-    marginBottom: 48,
+    marginBottom: scaleSpacing(36),
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: scaleFont(17), // Responsive subtitle size
     fontWeight: '500',
     textAlign: 'center',
-    letterSpacing: 0.3,
-    lineHeight: 28,
+    letterSpacing: 0.2,
+    lineHeight: scaleFont(24),
+    includeFontPadding: false,
+    paddingHorizontal: scaleSpacing(16),
   },
   featuresContainer: {
     width: '100%',
     alignItems: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: scaleSpacing(8),
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
-    paddingRight: 16,
+    marginBottom: scaleSpacing(18),
+    paddingRight: scaleSpacing(16),
   },
   bullet: {
-    fontSize: 20,
+    fontSize: scaleFont(16), // Responsive bullet size, slightly larger than feature text
     fontWeight: '600',
-    marginRight: 16,
-    marginTop: 2,
-    lineHeight: 24,
+    marginRight: scaleSpacing(12),
+    marginTop: scaleSpacing(2),
+    lineHeight: scaleFont(20),
+    includeFontPadding: false,
   },
   featureText: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: scaleFont(14), // Responsive feature text size
+    lineHeight: scaleFont(20),
     fontWeight: '400',
     flex: 1,
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
+    includeFontPadding: false,
   },
 });
 
