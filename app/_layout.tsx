@@ -24,6 +24,9 @@ function AppContent() {
     async function prepare() {
       const startTime = Date.now();
       
+      // Hide native splash screen immediately so custom one can show
+      await SplashScreen.hideAsync();
+      
       try {
         // Initialize database on app start
         await initDatabase();
@@ -41,10 +44,8 @@ function AppContent() {
           await new Promise(resolve => setTimeout(resolve, remainingTime));
         }
         
-        // Set app as ready
+        // Set app as ready after full delay
         setAppIsReady(true);
-        // Hide splash screen
-        await SplashScreen.hideAsync();
       }
     }
 
