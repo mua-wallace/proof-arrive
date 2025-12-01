@@ -83,20 +83,6 @@ export default function HomeScreen() {
           </ThemedText>
           <MaterialIcons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
         </TouchableOpacity>
-
-        {/* Sign Up Link */}
-        <ThemedView style={styles.footer}>
-          <ThemedText style={styles.footerText}>
-            Don't have an account?{' '}
-          </ThemedText>
-          <TouchableOpacity
-            onPress={() => router.push('/signup')}
-            activeOpacity={0.7}>
-            <ThemedText style={[styles.footerLink, { color: tintColor }]}>
-              Sign Up
-            </ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
       </View>
     </ThemedView>
   );
@@ -181,20 +167,6 @@ const styles = StyleSheet.create({
   },
   buttonIcon: {
     marginLeft: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  footerText: {
-    fontSize: 15,
-    opacity: 0.7,
-  },
-  footerLink: {
-    fontSize: 15,
-    fontWeight: '600',
   },
 });
 

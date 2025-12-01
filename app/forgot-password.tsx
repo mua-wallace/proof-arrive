@@ -2,58 +2,69 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 
-export default function LoginScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const tintColor = useThemeColor({}, 'tint');
 
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
-  const passwordInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
 
-  const handleForgotPassword = () => {
-    router.push('/forgot-password');
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
 
-  const handleLogin = async () => {
+  const handleResetPassword = async () => {
     if (!email.trim()) {
-      Alert.alert('Required', 'Please enter your email or username');
+      Alert.alert('Required', 'Please enter your email address');
+      emailInputRef.current?.focus();
       return;
     }
 
-    if (!password.trim()) {
-      Alert.alert('Required', 'Please enter your password');
+    if (!validateEmail(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address');
+      emailInputRef.current?.focus();
       return;
     }
 
     setIsLoading(true);
     try {
-      // TODO: Implement actual authentication
-      // For now, simulate a login delay
+      // TODO: Implement actual password reset API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Navigate to main app
-      router.replace('/(tabs)');
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      Alert.alert(
+        'Password Reset Sent',
+        `A password reset link has been sent to ${email}. Please check your email and follow the instructions to reset your password.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (error) {
-      Alert.alert('Error', 'Failed to login. Please try again.');
+      Alert.alert('Error', 'Failed to send password reset email. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -91,30 +102,26 @@ export default function LoginScreen() {
           <ThemedView style={styles.header}>
             <ThemedView
               style={[
-                styles.logoContainer,
+                styles.iconContainer,
                 {
                   backgroundColor: tintColor + '15',
                   borderColor: tintColor + '30',
                 },
               ]}>
-              <ThemedText
-                style={[styles.logoText, { color: tintColor }]}
-                type="title">
-                PA
-              </ThemedText>
+              <MaterialIcons name="lock-reset" size={40} color={tintColor} />
             </ThemedView>
             <ThemedText type="title" style={styles.title}>
-              Welcome Back
+              Forgot Password?
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              Sign in to continue
+              Enter your email address and we'll send you a link to reset your password.
             </ThemedText>
           </ThemedView>
 
           {/* Form */}
           <ThemedView style={styles.form}>
             <ThemedView style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Email or Username</ThemedText>
+              <ThemedText style={styles.label}>Email Address</ThemedText>
               <ThemedView
                 style={[
                   styles.inputWrapper,
@@ -130,88 +137,49 @@ export default function LoginScreen() {
                   style={styles.inputIcon}
                 />
                 <TextInput
+                  ref={emailInputRef}
                   style={[styles.input, { color: colors.text }]}
-                  placeholder="Enter your email or username"
+                  placeholder="Enter your email address"
                   placeholderTextColor={colors.text + '60'}
                   value={email}
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
-                  returnKeyType="next"
-                  editable={!isLoading}
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
-                  blurOnSubmit={false}
-                />
-              </ThemedView>
-            </ThemedView>
-
-            <ThemedView style={styles.inputContainer}>
-              <ThemedText style={styles.label}>Password</ThemedText>
-              <ThemedView
-                style={[
-                  styles.inputWrapper,
-                  {
-                    backgroundColor: colors.cardBackground,
-                    borderColor: colors.cardBorder,
-                  },
-                ]}>
-                <MaterialIcons
-                  name="lock-outline"
-                  size={20}
-                  color={colors.icon}
-                  style={styles.inputIcon}
-                />
-                <TextInput
-                  ref={passwordInputRef}
-                  style={[styles.input, { color: colors.text }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={colors.text + '60'}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
                   returnKeyType="done"
-                  onSubmitEditing={handleLogin}
+                  onSubmitEditing={handleResetPassword}
                   editable={!isLoading}
                 />
-                <TouchableOpacity
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.eyeIcon}
-                  activeOpacity={0.7}>
-                  <MaterialIcons
-                    name={showPassword ? 'visibility' : 'visibility-off'}
-                    size={20}
-                    color={colors.icon}
-                  />
-                </TouchableOpacity>
               </ThemedView>
             </ThemedView>
-
-            {/* Forgot Password Link */}
-            <TouchableOpacity
-              onPress={handleForgotPassword}
-              style={styles.forgotPasswordContainer}
-              activeOpacity={0.7}>
-              <ThemedText style={[styles.forgotPasswordText, { color: tintColor }]}>
-                Forgot Password?
-              </ThemedText>
-            </TouchableOpacity>
 
             <TouchableOpacity
               style={[
-                styles.loginButton,
+                styles.resetButton,
                 {
-                  backgroundColor: email && password ? tintColor : colors.disabled,
+                  backgroundColor: email && validateEmail(email) ? tintColor : colors.disabled,
                 },
-                (!email || !password) && styles.buttonDisabled,
+                (!email || !validateEmail(email)) && styles.buttonDisabled,
               ]}
-              onPress={handleLogin}
-              disabled={!email || !password || isLoading}
+              onPress={handleResetPassword}
+              disabled={!email || !validateEmail(email) || isLoading}
               activeOpacity={0.8}>
-              <ThemedText style={styles.loginButtonText} lightColor="#fff" darkColor="#fff">
-                {isLoading ? 'Signing in...' : 'Sign In'}
+              <ThemedText style={styles.resetButtonText} lightColor="#fff" darkColor="#fff">
+                {isLoading ? 'Sending...' : 'Send Reset Link'}
+              </ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+
+          {/* Help Text */}
+          <ThemedView style={styles.helpContainer}>
+            <ThemedText style={styles.helpText}>
+              Remember your password?{' '}
+            </ThemedText>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              activeOpacity={0.7}>
+              <ThemedText style={[styles.helpLink, { color: tintColor }]}>
+                Sign In
               </ThemedText>
             </TouchableOpacity>
           </ThemedView>
@@ -244,23 +212,18 @@ const styles = StyleSheet.create({
     padding: 8,
     zIndex: 10,
   },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  iconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     marginBottom: 24,
     marginTop: 8,
   },
-  logoText: {
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
   title: {
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
@@ -268,6 +231,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
     lineHeight: 24,
+    paddingHorizontal: 16,
   },
   form: {
     marginBottom: 24,
@@ -296,20 +260,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 0,
   },
-  eyeIcon: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  forgotPasswordContainer: {
-    alignItems: 'flex-end',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loginButton: {
+  resetButton: {
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -318,8 +269,22 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
-  loginButtonText: {
+  resetButtonText: {
     fontSize: 18,
+    fontWeight: '600',
+  },
+  helpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  helpText: {
+    fontSize: 15,
+    opacity: 0.7,
+  },
+  helpLink: {
+    fontSize: 15,
     fontWeight: '600',
   },
 });
