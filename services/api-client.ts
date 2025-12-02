@@ -84,16 +84,29 @@ export class ApiClient {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         try {
-          return await response.json();
+          const jsonData = await response.json();
+          // Log response for debugging
+          logger.log(`📡 [API] Response received (JSON): ${JSON.stringify(jsonData).substring(0, 200)}`);
+          return jsonData;
         } catch (parseError) {
           logger.error('Failed to parse JSON response:', parseError);
           throw new NetworkError('Invalid response format from server');
         }
       } else {
         const text = await response.text();
+        logger.log(`📡 [API] Response received (text): "${text}" (length: ${text.length})`);
+        
+        // Handle empty string
+        if (!text || text.trim() === '') {
+          logger.error('📡 [API] Empty response received from server');
+          throw new NetworkError('Empty response from server');
+        }
+        
         try {
-          return JSON.parse(text);
+          const parsed = JSON.parse(text);
+          return parsed;
         } catch {
+          // Return text as-is if it's not JSON (might be an error message)
           return text;
         }
       }

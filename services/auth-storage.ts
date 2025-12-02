@@ -22,12 +22,24 @@ export class AuthStorageService {
     }
 
     try {
+      // DEBUG: Log credentials being saved (excluding sensitive password data)
+      logger.log('🔐 [DEBUG] Saving login credentials:');
+      logger.log(`  - Username: ${user.loginUsername}`);
+      logger.log(`  - Full Name: ${user.fullName || 'N/A'}`);
+      logger.log(`  - Email: ${user.email || 'N/A'}`);
+      logger.log(`  - Company: ${user.company || 'N/A'}`);
+      logger.log(`  - Account ID: ${user.accid || 'N/A'}`);
+      logger.log(`  - Sub ID: ${user.subid || 'N/A'}`);
+      logger.log(`  - Token: ${user.token ? `${user.token.substring(0, 20)}...` : 'N/A'} (length: ${user.token?.length || 0})`);
+      
       const userData = JSON.stringify(user);
       await Storage.setItem({
         key: CREDENTIALS_KEY,
         value: userData,
       });
-      logger.log('✅ Credentials saved successfully');
+      logger.log('✅ Credentials saved successfully to storage');
+      logger.log(`  - Storage key: ${CREDENTIALS_KEY}`);
+      logger.log(`  - Data size: ${userData.length} bytes`);
     } catch (error) {
       const errorMessage = parseErrorMessage(error);
       logger.error('❌ Error saving credentials:', errorMessage);
@@ -47,7 +59,14 @@ export class AuthStorageService {
         const parsed = JSON.parse(data);
         // Validate parsed data structure
         if (parsed && typeof parsed === 'object' && parsed.loginUsername) {
-          logger.log('✅ Credentials retrieved');
+          // DEBUG: Log retrieved credentials
+          logger.log('🔐 [DEBUG] Credentials retrieved from storage:');
+          logger.log(`  - Username: ${parsed.loginUsername}`);
+          logger.log(`  - Full Name: ${parsed.fullName || 'N/A'}`);
+          logger.log(`  - Email: ${parsed.email || 'N/A'}`);
+          logger.log(`  - Account ID: ${parsed.accid || 'N/A'}`);
+          logger.log(`  - Token present: ${!!parsed.token} (length: ${parsed.token?.length || 0})`);
+          logger.log('✅ Credentials retrieved successfully');
           return parsed as ProofArriveUser;
         }
         logger.warn('Invalid credentials format in storage');

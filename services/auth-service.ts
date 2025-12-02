@@ -15,6 +15,7 @@ import { logger } from '@/utils/logger';
 
 import { ApiClient } from './api-client';
 import { AuthStorageService } from './auth-storage';
+import { clearAllUserData } from './data-cleanup';
 
 export class AuthService {
   private static apiClient = new ApiClient();
@@ -53,31 +54,122 @@ export class AuthService {
       });
 
       logger.log('🔐 Login response received');
+      
+      // DEBUG: Log the full response structure
+      logger.log('🔐 [DEBUG] Login response structure:');
+      logger.log(`  - Response type: ${typeof response}`);
+      logger.log(`  - Is array: ${Array.isArray(response)}`);
+      logger.log(`  - Is null: ${response === null}`);
+      logger.log(`  - Full response: ${JSON.stringify(response, null, 2)}`);
+      
+      // Handle different response types
+      let responseData: AuthResponse;
+      
+      if (response === null || response === undefined) {
+        logger.error('❌ [DEBUG] Response is null or undefined');
+        throw new AuthError('No response from server');
+      }
+      
+      // If response is a string, try to parse it
+      if (typeof response === 'string') {
+        // Handle empty string
+        if (response.trim() === '') {
+          logger.error('❌ [DEBUG] Response is an empty string');
+          throw new AuthError('Empty response from server. Please check your credentials and try again.');
+        }
+        
+        logger.log('⚠️  [DEBUG] Response is a string, attempting to parse...');
+        logger.log(`  - String length: ${response.length}`);
+        logger.log(`  - String content: "${response}"`);
+        
+        try {
+          responseData = JSON.parse(response);
+          logger.log('✅ [DEBUG] Successfully parsed string response');
+        } catch (parseError) {
+          logger.error('❌ [DEBUG] Failed to parse string response:', parseErrorMessage(parseError));
+          // If it's a plain string error message, use it (but not if it's empty)
+          const errorMessage = response.trim() || 'Invalid response from server';
+          throw new AuthError(errorMessage);
+        }
+      }
+      // If response is an array, check if it contains error info
+      else if (Array.isArray(response)) {
+        logger.log('⚠️  [DEBUG] Response is an array');
+        logger.log(`  - Array length: ${response.length}`);
+        logger.log(`  - First element: ${JSON.stringify(response[0])}`);
+        
+        // Some APIs return error messages in arrays like [[0, "error message"]]
+        if (response.length > 0 && Array.isArray(response[0])) {
+          const errorCode = response[0][0];
+          const errorMessage = response[0][1] || 'Login failed';
+          logger.error(`❌ [DEBUG] Error response in array format: [${errorCode}, "${errorMessage}"]`);
+          throw new AuthError(errorMessage);
+        }
+        
+        // If array doesn't match expected format, treat as invalid
+        logger.error('❌ [DEBUG] Unexpected array response format');
+        throw new AuthError('Invalid response format from server');
+      }
+      // If response is an object, use it directly
+      else if (typeof response === 'object') {
+        responseData = response as AuthResponse;
+        logger.log(`  - Response keys: ${Object.keys(responseData).join(', ')}`);
+      }
+      // For other types (number, boolean, etc.), treat as invalid
+      else {
+        logger.error(`❌ [DEBUG] Invalid response type: ${typeof response}`);
+        throw new AuthError('Invalid response format from server');
+      }
+      
+      // Now log the parsed response data
+      logger.log(`  - Has username: ${!!responseData?.username}`);
+      logger.log(`  - Has accid: ${!!responseData?.accid}`);
+      logger.log(`  - Has token: ${!!responseData?.token}`);
+      logger.log(`  - Username value: ${responseData?.username || 'N/A'}`);
+      logger.log(`  - Accid value: ${responseData?.accid || 'N/A'}`);
+      logger.log(`  - Token value: ${responseData?.token ? `${responseData.token.substring(0, 20)}...` : 'N/A'}`);
+      logger.log(`  - Has msg: ${!!responseData?.msg}`);
+      logger.log(`  - Msg item: ${responseData?.msg?.item || 'N/A'}`);
+      logger.log(`  - Has message: ${!!responseData?.message}`);
+      logger.log(`  - Message value: ${responseData?.message || 'N/A'}`);
 
       // Validate response structure
-      if (!response || typeof response !== 'object') {
+      if (!responseData || typeof responseData !== 'object' || Array.isArray(responseData)) {
+        logger.error('❌ [DEBUG] Invalid response structure after parsing');
         throw new AuthError('Invalid response from server');
       }
 
       // Check if login was successful
-      if (response.username || response.accid) {
+      if (responseData.username || responseData.accid) {
+        logger.log('✅ [DEBUG] Login response validation passed - has username or accid');
         const user: ProofArriveUser = {
           loginUsername: credentials.username.trim(),
-          fullName: response.username || credentials.username.trim(),
-          email: response.email || `${credentials.username.trim()}@proofarrive.com`,
-          company: response.company || 'ProofArrive Client',
-          accid: response.accid || '',
-          subid: response.subid || '',
-          token: response.token || '',
+          fullName: responseData.username || credentials.username.trim(),
+          email: responseData.email || `${credentials.username.trim()}@proofarrive.com`,
+          company: responseData.company || 'ProofArrive Client',
+          accid: responseData.accid || '',
+          subid: responseData.subid || '',
+          token: responseData.token || '',
         };
 
         // Validate required fields
+        logger.log('🔐 [DEBUG] Validating user object:');
+        logger.log(`  - accid: ${user.accid || 'MISSING'}`);
+        logger.log(`  - token: ${user.token ? `${user.token.substring(0, 20)}...` : 'MISSING'}`);
+        
         if (!user.accid || !user.token) {
+          logger.error('❌ [DEBUG] Validation failed - missing accid or token');
+          logger.error(`  - accid present: ${!!user.accid}`);
+          logger.error(`  - token present: ${!!user.token}`);
           throw new AuthError('Incomplete authentication data received');
         }
+        
+        logger.log('✅ [DEBUG] User object validation passed');
 
         // Save credentials to storage
         try {
+          logger.log('💾 [DEBUG] Preparing to save credentials after successful login');
+          logger.log(`  - User object keys: ${Object.keys(user).join(', ')}`);
           await AuthStorageService.saveCredentials(user);
           logger.log('✅ Login successful and credentials saved');
         } catch (storageError) {
@@ -87,10 +179,13 @@ export class AuthService {
 
         return user;
       } else {
+        logger.error('❌ [DEBUG] Login validation failed - no username or accid in response');
+        logger.error(`  - Response structure: ${JSON.stringify(responseData)}`);
         const errorMessage =
-          response?.msg?.item ||
-          response?.message ||
+          responseData?.msg?.item ||
+          responseData?.message ||
           'Invalid username or password';
+        logger.error(`  - Error message to throw: ${errorMessage}`);
         throw new AuthError(errorMessage);
       }
     } catch (error) {
@@ -191,8 +286,18 @@ export class AuthService {
     } finally {
       // Always clear local data regardless of API response
       try {
+        // Clear authentication data
         await AuthStorageService.clearAllData();
-        logger.log('🧹 Local data cleared');
+        logger.log('🧹 Authentication data cleared');
+        
+        // Clear current center info
+        const { clearCurrentCenter } = await import('./center-info');
+        await clearCurrentCenter();
+        logger.log('🧹 Current center info cleared');
+        
+        // Clear user-specific data (geozones and centers)
+        await clearAllUserData();
+        logger.log('🧹 All user data cleared');
       } catch (clearError) {
         logger.error('🧹 Failed to clear local data:', parseErrorMessage(clearError));
         // Don't throw - logout should always complete

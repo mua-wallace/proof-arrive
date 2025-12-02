@@ -9,19 +9,22 @@
       "distribution": "internal",
       "env": {
         "NODE_ENV": "development"
-      }
+      },
+      "prebuildCommand": "npm run security-check"
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "NODE_ENV": "production"
-      }
+      },
+      "prebuildCommand": "npm run security-check"
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "NODE_ENV": "production"
-      }
+      },
+      "prebuildCommand": "npm run security-check"
     }
   },
   "submit": {

@@ -4,11 +4,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
 import 'react-native-reanimated';
 
 import { CustomSplashScreen } from '@/components/splash-screen';
 import { ThemeContextProvider, useThemeContext } from '@/contexts/theme-context';
 import { AuthService } from '@/services/auth-service';
+import { initializeCenters } from '@/services/center-service';
+import { initializeGeozones } from '@/services/geozone-service';
 import { initDatabase } from '@/services/storage';
 import { checkAndSync } from '@/services/sync';
 import { parseErrorMessage } from '@/utils/error-handler';
@@ -39,6 +42,25 @@ function AppContent() {
           const user = await AuthService.verifyStoredCredentials();
           if (user) {
             logger.log('✅ Auto-login successful for:', user.loginUsername);
+            // Fetch and store geozones for logged-in user
+            try {
+              logger.log('📡 Fetching geozones for auto-logged-in user...');
+              await initializeGeozones();
+              logger.log('✅ Geozones initialized successfully');
+            } catch (geozoneError) {
+              // Log but don't block app initialization
+              logger.error('Failed to initialize geozones on auto-login:', parseErrorMessage(geozoneError));
+            }
+            
+            // Fetch and store centers for logged-in user
+            try {
+              logger.log('📡 Fetching and storing centers for auto-logged-in user...');
+              await initializeCenters();
+              logger.log('✅ Centers initialized successfully');
+            } catch (centerError) {
+              // Log but don't block app initialization
+              logger.error('Failed to initialize centers on auto-login:', parseErrorMessage(centerError));
+            }
           }
         } catch (authError) {
           logger.error('Auto-login verification failed:', parseErrorMessage(authError));
@@ -93,6 +115,7 @@ function AppContent() {
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
+      <Toast />
     </NavThemeProvider>
   );
 }

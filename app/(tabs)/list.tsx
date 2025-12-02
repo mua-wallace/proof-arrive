@@ -8,6 +8,7 @@ import { useCallback } from 'react';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { getAllArrivals } from '@/services/storage';
+import { getCenterById } from '@/services/center-storage';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { SwipeableTab } from '@/components/swipeable-tab';
 import { VehicleStatus } from '@/types/arrival';
@@ -29,6 +30,7 @@ interface ArrivalItem {
   exitDestination: string | null;
   exitTime: number | null;
   synced: number;
+  centerName?: string; // Center name for display
 }
 
 type FilterStatus = 'all' | 'in_processing' | 'ready_to_exit' | 'exited';
@@ -57,8 +59,35 @@ export default function ScannedListScreen() {
   const loadArrivals = async () => {
     try {
       const data = await getAllArrivals();
-      setArrivals(data);
-      applyFilter(data, activeFilter);
+      
+      // Load center names for each arrival
+      const arrivalsWithCenterNames = await Promise.all(
+        data.map(async (arrival) => {
+          try {
+            const centerIdNum = parseInt(arrival.centerId, 10);
+            if (!isNaN(centerIdNum)) {
+              const center = await getCenterById(centerIdNum);
+              return {
+                ...arrival,
+                centerName: center?.name || arrival.centerId,
+              };
+            }
+            return {
+              ...arrival,
+              centerName: arrival.centerId,
+            };
+          } catch (error) {
+            logger.error(`Failed to load center for arrival ${arrival.id}:`, parseErrorMessage(error));
+            return {
+              ...arrival,
+              centerName: arrival.centerId,
+            };
+          }
+        })
+      );
+      
+      setArrivals(arrivalsWithCenterNames);
+      applyFilter(arrivalsWithCenterNames, activeFilter);
     } catch (error) {
       logger.error('Failed to load arrivals:', parseErrorMessage(error));
       // Set empty array on error to prevent UI issues
@@ -226,7 +255,7 @@ export default function ScannedListScreen() {
                   {item.vehicleId}
                 </ThemedText>
                 <ThemedText style={styles.centerId}>
-                  {item.centerId}
+                  {item.centerName || item.centerId}
                 </ThemedText>
               </View>
             </View>

@@ -8,20 +8,38 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { saveArrival } from '@/services/storage';
+import { getCurrentCenter } from '@/services/center-info';
 import { DEFAULT_CENTER_ID, DEFAULT_AGENT_ID } from '@/constants/config';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { OperationType } from '@/types/arrival';
+import { logger } from '@/utils/logger';
 
 function ConfirmScreen() {
   const params = useLocalSearchParams();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [centerName, setCenterName] = useState<string>('Loading...');
   const tintColor = useThemeColor({}, 'tint');
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    loadCenterInfo();
     saveArrivalData();
   }, []);
+
+  const loadCenterInfo = async () => {
+    try {
+      const center = await getCurrentCenter();
+      if (center) {
+        setCenterName(center.name || 'Not determined');
+      } else {
+        setCenterName('Not determined');
+      }
+    } catch (error) {
+      logger.error('Failed to load center info:', error instanceof Error ? error.message : String(error));
+      setCenterName('Not determined');
+    }
+  };
 
   const saveArrivalData = async () => {
     if (saving || saved) return;
@@ -30,7 +48,9 @@ function ConfirmScreen() {
 
     try {
       const vehicleId = params.vehicleId as string;
-      const centerId = (params.centerId as string) || DEFAULT_CENTER_ID;
+      // Get center ID from stored center info
+      const center = await getCurrentCenter();
+      const centerId = center ? center.id.toString() : ((params.centerId as string) || DEFAULT_CENTER_ID);
       const operationType = params.operationType as OperationType;
       const scanTimestamp = parseInt(params.scanTimestamp as string, 10);
       const agentLatitude = parseFloat(params.agentLatitude as string);
@@ -123,7 +143,7 @@ function ConfirmScreen() {
 
         <View style={styles.detailsContainer}>
           <DetailRow label="Vehicle ID" value={params.vehicleId as string} />
-          <DetailRow label="Center ID" value={(params.centerId as string) || DEFAULT_CENTER_ID} />
+          <DetailRow label="Center" value={centerName} />
           <DetailRow
             label="Operation"
             value={(params.operationType as string).toUpperCase()}

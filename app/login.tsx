@@ -11,11 +11,15 @@ import {
   TouchableOpacity
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { AuthService } from '@/services/auth-service';
+import { initializeCenters } from '@/services/center-service';
+import { initializeGeozones, findZoneForLocation } from '@/services/geozone-service';
+import { getCurrentLocation } from '@/services/location';
 import { AuthError, isNetworkError, NetworkError, parseErrorMessage as parseError } from '@/utils/error-handler';
 import { logger } from '@/utils/logger';
 
@@ -157,6 +161,72 @@ export default function LoginScreen() {
         );
       } catch (hapticError) {
         // Ignore haptic errors - not critical
+      }
+      
+      // Fetch and store geozones after successful login
+      try {
+        logger.log('📡 Fetching geozones for logged-in user...');
+        await initializeGeozones();
+        logger.log('✅ Geozones initialized successfully');
+      } catch (geozoneError) {
+        // Log but don't block navigation - geozones can be fetched later
+        logger.error('Failed to initialize geozones:', parseError(geozoneError));
+      }
+      
+      // Fetch and store centers after successful login
+      try {
+        logger.log('📡 Fetching and storing centers for logged-in user...');
+        await initializeCenters();
+        logger.log('✅ Centers initialized successfully');
+      } catch (centerError) {
+        // Log but don't block navigation - centers can be fetched later
+        logger.error('Failed to initialize centers:', parseError(centerError));
+      }
+      
+      // Check if user is in a geozone after successful login and save center info
+      try {
+        logger.log('📍 Checking user location for geozone...');
+        const currentLocation = await getCurrentLocation();
+        const { getCenterFromLocation } = await import('@/services/geozone-service');
+        const center = await getCenterFromLocation({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          accuracy: currentLocation.accuracy,
+          timestamp: currentLocation.timestamp,
+        });
+        
+        if (!center) {
+          // User is not in any geozone - show toast message
+          Toast.show({
+            type: 'error',
+            text1: 'Geozone Not Found',
+            text2: 'You aren\'t in any agreed geozone known, so your center won\'t be able to be determined',
+            visibilityTime: 5000,
+            position: 'top',
+          });
+          logger.warn(
+            `⚠️ User location (${currentLocation.latitude}, ${currentLocation.longitude}) ` +
+            `not found in any geozone - center cannot be determined`
+          );
+        } else {
+          logger.log(
+            `✅ User is in geozone: ${center.geozone} (Center: ${center.name}, ID: ${center.id})`
+          );
+          // Center info is automatically saved by getCenterFromLocation
+        }
+      } catch (locationError) {
+        // Log but don't block navigation - location check can fail due to permissions or other issues
+        logger.error('Failed to check user location for geozone:', parseError(locationError));
+        // Show toast if it's a permission error
+        if (locationError instanceof Error && locationError.message.includes('permission')) {
+          Toast.show({
+            type: 'error',
+            text1: 'Location Permission Required',
+            text2: 'Please enable location permissions to determine your geozone',
+            visibilityTime: 4000,
+            position: 'top',
+          });
+        }
       }
       
       // Navigate to main app

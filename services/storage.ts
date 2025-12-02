@@ -136,27 +136,46 @@ export async function saveArrival(record: {
 }) {
   const database = await initDatabase();
   
+  const values = [
+    record.id,
+    record.vehicleId,
+    record.centerId,
+    record.agentId || null,
+    record.operationType,
+    record.scanTimestamp,
+    record.agentLatitude,
+    record.agentLongitude,
+    record.agentAccuracy || null,
+    record.vehicleGPSDevice || null,
+    record.scanTimestamp, // processingStartTime = scanTimestamp (arrival time)
+    Date.now(),
+  ];
+  
+  // DEBUG: Log data being saved to SQLite
+  logger.log('💾 [SQLite DEBUG] Saving arrival to database:');
+  logger.log(`  - ID: ${record.id}`);
+  logger.log(`  - Vehicle ID: ${record.vehicleId}`);
+  logger.log(`  - Center ID: ${record.centerId}`);
+  logger.log(`  - Agent ID: ${record.agentId || 'N/A'}`);
+  logger.log(`  - Operation Type: ${record.operationType}`);
+  logger.log(`  - Scan Timestamp: ${record.scanTimestamp} (${new Date(record.scanTimestamp).toISOString()})`);
+  logger.log(`  - Location: [${record.agentLatitude}, ${record.agentLongitude}]`);
+  logger.log(`  - Accuracy: ${record.agentAccuracy || 'N/A'}m`);
+  logger.log(`  - Vehicle GPS Device: ${record.vehicleGPSDevice || 'N/A'}`);
+  logger.log(`  - Status: in_processing`);
+  logger.log(`  - Created At: ${Date.now()} (${new Date().toISOString()})`);
+  logger.log(`  - Full record: ${JSON.stringify(record, null, 2)}`);
+  
   await database.runAsync(
     `INSERT INTO arrivals (
       id, vehicleId, centerId, agentId, operationType, scanTimestamp,
       agentLatitude, agentLongitude, agentAccuracy, vehicleGPSDevice, 
       status, processingStartTime, synced, createdAt
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_processing', ?, 0, ?)`,
-    [
-      record.id,
-      record.vehicleId,
-      record.centerId,
-      record.agentId || null,
-      record.operationType,
-      record.scanTimestamp,
-      record.agentLatitude,
-      record.agentLongitude,
-      record.agentAccuracy || null,
-      record.vehicleGPSDevice || null,
-      record.scanTimestamp, // processingStartTime = scanTimestamp (arrival time)
-      Date.now(),
-    ]
+    values
   );
+  
+  logger.log('✅ [SQLite DEBUG] Arrival saved successfully to database');
 }
 
 export async function getUnsyncedArrivals() {
@@ -187,13 +206,26 @@ export async function getUnsyncedArrivals() {
     createdAt: number;
   }>('SELECT * FROM arrivals WHERE synced = 0 ORDER BY createdAt ASC');
 
+  // DEBUG: Log retrieved data from SQLite
+  logger.log(`📖 [SQLite DEBUG] Retrieved ${result.length} unsynced arrivals from database`);
+  result.forEach((arrival, index) => {
+    logger.log(`  [${index + 1}/${result.length}] Arrival ID: ${arrival.id}`);
+    logger.log(`    - Vehicle ID: ${arrival.vehicleId}`);
+    logger.log(`    - Center ID: ${arrival.centerId}`);
+    logger.log(`    - Status: ${arrival.status}`);
+    logger.log(`    - Scan Time: ${new Date(arrival.scanTimestamp).toISOString()}`);
+    logger.log(`    - Full record: ${JSON.stringify(arrival, null, 2)}`);
+  });
+
   return result;
 }
 
 export async function markAsSynced(id: string) {
   const database = await initDatabase();
   
+  logger.log(`💾 [SQLite DEBUG] Marking arrival as synced: ${id}`);
   await database.runAsync('UPDATE arrivals SET synced = 1 WHERE id = ?', [id]);
+  logger.log(`✅ [SQLite DEBUG] Arrival ${id} marked as synced`);
 }
 
 export async function getAllArrivals() {
@@ -223,6 +255,19 @@ export async function getAllArrivals() {
     synced: number;
     createdAt: number;
   }>('SELECT * FROM arrivals ORDER BY createdAt DESC');
+
+  // DEBUG: Log retrieved data from SQLite
+  logger.log(`📖 [SQLite DEBUG] Retrieved ${result.length} total arrivals from database`);
+  const syncedCount = result.filter(a => a.synced === 1).length;
+  const unsyncedCount = result.filter(a => a.synced === 0).length;
+  logger.log(`  - Synced: ${syncedCount}`);
+  logger.log(`  - Unsynced: ${unsyncedCount}`);
+  if (result.length > 0) {
+    logger.log(`  - First arrival: ${JSON.stringify(result[0], null, 2)}`);
+    if (result.length > 1) {
+      logger.log(`  - Last arrival: ${JSON.stringify(result[result.length - 1], null, 2)}`);
+    }
+  }
 
   return result;
 }
@@ -265,6 +310,11 @@ export async function updateArrivalStatus(
 ) {
   const database = await initDatabase();
   
+  logger.log(`💾 [SQLite DEBUG] Updating arrival status:`);
+  logger.log(`  - ID: ${id}`);
+  logger.log(`  - New Status: ${status}`);
+  logger.log(`  - Processing End Time: ${processingEndTime ? `${processingEndTime} (${new Date(processingEndTime).toISOString()})` : 'N/A'}`);
+  
   if (processingEndTime !== undefined) {
     await database.runAsync(
       'UPDATE arrivals SET status = ?, processingEndTime = ? WHERE id = ?',
@@ -276,6 +326,8 @@ export async function updateArrivalStatus(
       [status, id]
     );
   }
+  
+  logger.log(`✅ [SQLite DEBUG] Arrival ${id} status updated to ${status}`);
 }
 
 export async function saveExit(record: {
@@ -290,6 +342,28 @@ export async function saveExit(record: {
 }) {
   const database = await initDatabase();
   
+  const values = [
+    record.exitType,
+    record.exitDestination || null,
+    record.exitTime,
+    record.exitAgentLatitude,
+    record.exitAgentLongitude,
+    record.exitAgentAccuracy || null,
+    record.exitVehicleGPSDevice || null,
+    record.id,
+  ];
+  
+  // DEBUG: Log exit data being saved to SQLite
+  logger.log('💾 [SQLite DEBUG] Saving exit data to database:');
+  logger.log(`  - Arrival ID: ${record.id}`);
+  logger.log(`  - Exit Type: ${record.exitType}`);
+  logger.log(`  - Exit Destination: ${record.exitDestination || 'N/A'}`);
+  logger.log(`  - Exit Time: ${record.exitTime} (${new Date(record.exitTime).toISOString()})`);
+  logger.log(`  - Exit Location: [${record.exitAgentLatitude}, ${record.exitAgentLongitude}]`);
+  logger.log(`  - Exit Accuracy: ${record.exitAgentAccuracy || 'N/A'}m`);
+  logger.log(`  - Exit Vehicle GPS Device: ${record.exitVehicleGPSDevice || 'N/A'}`);
+  logger.log(`  - Full exit record: ${JSON.stringify(record, null, 2)}`);
+  
   await database.runAsync(
     `UPDATE arrivals SET 
       status = 'exited',
@@ -301,16 +375,9 @@ export async function saveExit(record: {
       exitAgentAccuracy = ?,
       exitVehicleGPSDevice = ?
     WHERE id = ?`,
-    [
-      record.exitType,
-      record.exitDestination || null,
-      record.exitTime,
-      record.exitAgentLatitude,
-      record.exitAgentLongitude,
-      record.exitAgentAccuracy || null,
-      record.exitVehicleGPSDevice || null,
-      record.id,
-    ]
+    values
   );
+  
+  logger.log(`✅ [SQLite DEBUG] Exit data saved for arrival ${record.id}`);
 }
 

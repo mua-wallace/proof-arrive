@@ -4,11 +4,16 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:fast": "expo start --no-dev --minify",
+    "start:clear": "expo start --clear",
+    "start:lan": "expo start --lan",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "prebuild": "npm audit --audit-level=moderate || exit 0",
+    "security-check": "npm audit --audit-level=moderate"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -16,6 +21,7 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
+    "babel-plugin-module-resolver": "^5.0.2",
     "expo": "~54.0.25",
     "expo-camera": "^17.0.9",
     "expo-constants": "~18.0.10",
@@ -40,6 +46,7 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
+    "react-native-toast-message": "^2.3.3",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1"
   },

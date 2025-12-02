@@ -11,6 +11,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { getCurrentLocation } from '@/services/location';
 import { parseQRCodeData } from '@/services/qr-scanner';
 import { getAllArrivals } from '@/services/storage';
+import { getCurrentCenter } from '@/services/center-info';
 
 export default function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -74,12 +75,16 @@ export default function ScanScreen() {
 
       if (existingArrival) {
         // Vehicle is ready to exit, navigate to exit flow
+        // Get center ID from stored center info
+        const center = await getCurrentCenter();
+        const centerId = center ? center.id.toString() : (qrData.centerId || existingArrival.centerId);
+        
         router.push({
           pathname: '/exit-type' as any,
           params: {
             id: existingArrival.id,
             vehicleId: qrData.vehicleId,
-            centerId: qrData.centerId || existingArrival.centerId,
+            centerId: centerId,
             operationType: existingArrival.operationType,
             vehicleGPSDevice: qrData.vehicleGPSDevice || '',
           },
@@ -90,12 +95,16 @@ export default function ScanScreen() {
       // New arrival - get GPS location
       const agentGPS = await getCurrentLocation();
 
+      // Get center ID from stored center info
+      const center = await getCurrentCenter();
+      const centerId = center ? center.id.toString() : (qrData.centerId || '');
+
       // Navigate to operation type selection with data
       router.push({
         pathname: '/operation-type',
         params: {
           vehicleId: qrData.vehicleId,
-          centerId: qrData.centerId || '',
+          centerId: centerId,
           vehicleGPSDevice: qrData.vehicleGPSDevice || '',
           agentLatitude: agentGPS.latitude.toString(),
           agentLongitude: agentGPS.longitude.toString(),
