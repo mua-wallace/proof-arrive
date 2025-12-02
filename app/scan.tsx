@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,14 +12,30 @@ import { getCurrentLocation } from '@/services/location';
 import { parseQRCodeData } from '@/services/qr-scanner';
 import { getAllArrivals } from '@/services/storage';
 import { getCurrentCenter } from '@/services/center-info';
+import { CenterInfoService } from '@/services/center-info';
+import { parseErrorMessage } from '@/utils/error-handler';
+import { logger } from '@/utils/logger';
 
 export default function ScanScreen() {
+  const params = useLocalSearchParams<{
+    vehicleId?: string;
+    vehicleName?: string;
+    vehiclePlate?: string;
+    prefill?: string;
+  }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const tintColor = useThemeColor({}, 'tint');
   const insets = useSafeAreaInsets();
+
+  // Handle pre-filled vehicle data
+  useEffect(() => {
+    if (params.prefill === 'true' && params.vehicleId) {
+      handlePrefilledVehicle();
+    }
+  }, [params.prefill, params.vehicleId]);
 
   const handleClose = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -53,6 +69,95 @@ export default function ScanScreen() {
       // Permission was denied permanently, show the button
     }
   }, [permission]);
+
+  const handlePrefilledVehicle = async () => {
+    if (processing) return;
+
+    setProcessing(true);
+    setScanning(false);
+
+    try {
+      // Haptic feedback
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const vehicleId = params.vehicleId || '';
+      const vehicleName = params.vehicleName || vehicleId;
+      const vehiclePlate = params.vehiclePlate || '';
+
+      logger.log(`📱 [Scan] Processing pre-filled vehicle: ${vehicleId} (${vehicleName})`);
+
+      // Check if vehicle already exists and is ready to exit
+      const allArrivals = await getAllArrivals();
+      const existingArrival = allArrivals.find(
+        (arrival) => arrival.vehicleId === vehicleId && arrival.status === 'ready_to_exit'
+      );
+
+      if (existingArrival) {
+        // Vehicle is ready to exit, navigate to exit flow
+        const center = await getCurrentCenter();
+        const centerId = center ? center.id.toString() : existingArrival.centerId;
+        
+        router.push({
+          pathname: '/exit-type' as any,
+          params: {
+            id: existingArrival.id,
+            vehicleId: vehicleId,
+            centerId: centerId,
+            operationType: existingArrival.operationType,
+            vehicleGPSDevice: '', // Pre-filled vehicles might not have GPS device info
+          },
+        });
+        return;
+      }
+
+      // New arrival - get GPS location
+      const agentGPS = await getCurrentLocation();
+
+      // Get center ID from stored center info
+      const center = await getCurrentCenter();
+      const centerId = center ? center.id.toString() : '';
+
+      // Navigate to operation type selection with data
+      router.push({
+        pathname: '/operation-type',
+        params: {
+          vehicleId: vehicleId,
+          vehicleName: vehicleName,
+          vehiclePlate: vehiclePlate,
+          centerId: centerId,
+          vehicleGPSDevice: '', // Pre-filled vehicles might not have GPS device info
+          agentLatitude: agentGPS.latitude.toString(),
+          agentLongitude: agentGPS.longitude.toString(),
+          agentAccuracy: agentGPS.accuracy?.toString() || '',
+          scanTimestamp: agentGPS.timestamp.toString(),
+        },
+      });
+
+      // Update current center info based on location after successful scan
+      try {
+        await CenterInfoService.updateCurrentCenterIfChanged();
+        logger.log('✅ [Scan] Current center info updated after pre-filled vehicle scan.');
+      } catch (centerInfoError) {
+        logger.error('❌ [Scan] Failed to update current center info after pre-filled vehicle scan:', parseErrorMessage(centerInfoError));
+      }
+    } catch (error) {
+      setProcessing(false);
+      setScanning(true);
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      
+      Alert.alert(
+        'Scan Error',
+        parseErrorMessage(error),
+        [
+          {
+            text: 'Try Again',
+            onPress: () => setScanning(true),
+          },
+        ]
+      );
+    }
+  };
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
     if (processing) return;
@@ -112,6 +217,14 @@ export default function ScanScreen() {
           scanTimestamp: agentGPS.timestamp.toString(),
         },
       });
+
+      // Update current center info based on location after successful scan
+      try {
+        await CenterInfoService.updateCurrentCenterIfChanged();
+        logger.log('✅ [Scan] Current center info updated after QR scan.');
+      } catch (centerInfoError) {
+        logger.error('❌ [Scan] Failed to update current center info after QR scan:', parseErrorMessage(centerInfoError));
+      }
     } catch (error) {
       setScanning(true);
       setProcessing(false);
@@ -120,7 +233,7 @@ export default function ScanScreen() {
       
       Alert.alert(
         'Scan Error',
-        error instanceof Error ? error.message : 'Failed to process QR code',
+        parseErrorMessage(error),
         [
           {
             text: 'Try Again',

@@ -19,8 +19,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Scan',
-          tabBarIcon: ({ color }) => <MaterialIcons name="qr-code-scanner" size={28} color={color} />,
+          title: 'IncomingArrivals',
+          tabBarIcon: ({ color }) => <MaterialIcons name="local-shipping" size={28} color={color} />,
         }}
       />
       <Tabs.Screen

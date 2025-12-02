@@ -225,6 +225,74 @@ export async function getCenterByGzoneId(gzoneId: number): Promise<RawCenterData
 }
 
 /**
+ * Find center by name (fuzzy match)
+ * Searches both name and fullname fields
+ */
+export async function findCenterByName(name: string): Promise<RawCenterData | null> {
+  try {
+    const db = await initDatabase();
+    const searchName = name.trim().toLowerCase();
+    
+    // Try exact match first
+    let result = await db.getFirstAsync<{
+      id: number;
+      manager: string | null;
+      geozone: string;
+      name: string;
+      fullname: string;
+      gzone_id: number;
+      groupname: string;
+    }>(
+      'SELECT * FROM centers WHERE LOWER(name) = ? OR LOWER(fullname) = ? LIMIT 1',
+      [searchName, searchName]
+    );
+
+    if (result) {
+      return {
+        id: result.id,
+        manager: result.manager || undefined,
+        geozone: result.geozone,
+        name: result.name,
+        fullname: result.fullname,
+        gzone_id: result.gzone_id,
+        groupname: result.groupname,
+      };
+    }
+
+    // Try partial match (contains)
+    result = await db.getFirstAsync<{
+      id: number;
+      manager: string | null;
+      geozone: string;
+      name: string;
+      fullname: string;
+      gzone_id: number;
+      groupname: string;
+    }>(
+      'SELECT * FROM centers WHERE LOWER(name) LIKE ? OR LOWER(fullname) LIKE ? LIMIT 1',
+      [`%${searchName}%`, `%${searchName}%`]
+    );
+
+    if (result) {
+      return {
+        id: result.id,
+        manager: result.manager || undefined,
+        geozone: result.geozone,
+        name: result.name,
+        fullname: result.fullname,
+        gzone_id: result.gzone_id,
+        groupname: result.groupname,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Error finding center by name:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+/**
  * Clear all centers from database
  */
 export async function clearCenters(): Promise<void> {

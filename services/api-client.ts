@@ -60,6 +60,9 @@ export class ApiClient {
     }
 
     logger.log(`📡 API Request: ${method} ${url}`);
+    if (formData) {
+      logger.log(`📡 [API] FormData fields: ${Array.from((formData as any)._parts || []).map((p: any) => `${p[0]}=${typeof p[1] === 'string' ? p[1].substring(0, 20) + '...' : '[File]'}`).join(', ')}`);
+    }
 
     const config: RequestInit = {
       method,
@@ -69,19 +72,49 @@ export class ApiClient {
       },
     };
 
+    // When using FormData, don't set Content-Type header - let fetch set it with boundary
     if (formData && method !== 'GET') {
       config.body = formData;
+      // Remove Content-Type from headers if it exists - fetch will set it automatically
+      if (config.headers && 'Content-Type' in config.headers) {
+        delete (config.headers as any)['Content-Type'];
+      }
     }
 
     try {
-      const response = await fetch(url, config);
+      // Add timeout to fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const response = await fetch(url, {
+          ...config,
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
-        throw new NetworkError(errorMessage);
-      }
+        if (!response.ok) {
+          const errorMessage = `HTTP error! status: ${response.status} - ${response.statusText}`;
+          logger.error(`📡 [API] HTTP Error: ${errorMessage}`);
+          logger.error(`  - URL: ${url}`);
+          logger.error(`  - Method: ${method}`);
+          
+          // Provide more specific error messages based on status code
+          if (response.status === 401 || response.status === 403) {
+            throw new NetworkError('Authentication failed. Please check your credentials and try again.');
+          } else if (response.status === 404) {
+            throw new NetworkError('API endpoint not found. Please check the server configuration.');
+          } else if (response.status >= 500) {
+            throw new NetworkError('Server error. Please try again later.');
+          } else {
+            throw new NetworkError(errorMessage);
+          }
+        }
 
       const contentType = response.headers.get('content-type');
+      const responseStatus = response.status;
+      
       if (contentType && contentType.includes('application/json')) {
         try {
           const jsonData = await response.json();
@@ -90,6 +123,8 @@ export class ApiClient {
           return jsonData;
         } catch (parseError) {
           logger.error('Failed to parse JSON response:', parseError);
+          logger.error(`  - URL: ${url}`);
+          logger.error(`  - Status: ${responseStatus} ${response.statusText}`);
           throw new NetworkError('Invalid response format from server');
         }
       } else {
@@ -99,7 +134,23 @@ export class ApiClient {
         // Handle empty string
         if (!text || text.trim() === '') {
           logger.error('📡 [API] Empty response received from server');
-          throw new NetworkError('Empty response from server');
+          logger.error(`  - URL: ${url}`);
+          logger.error(`  - Method: ${method}`);
+          logger.error(`  - Status: ${responseStatus} ${response.statusText}`);
+          logger.error(`  - Content-Type: ${contentType || 'not set'}`);
+          logger.error(`  - This usually indicates: invalid credentials, server error, or API endpoint issue`);
+          
+          // Provide more specific error based on status code
+          if (responseStatus === 401 || responseStatus === 403) {
+            throw new NetworkError('Authentication failed. Please check your username and password.');
+          } else if (responseStatus >= 500) {
+            throw new NetworkError('Server error. The server is experiencing issues. Please try again later.');
+          } else if (responseStatus === 200 || responseStatus === 201) {
+            // OK status but empty body - likely invalid credentials or API issue
+            throw new NetworkError('Empty response from server. This may indicate invalid credentials. Please check your login details and try again.');
+          } else {
+            throw new NetworkError(`Empty response from server (Status: ${responseStatus}). This may indicate invalid credentials or a server issue.`);
+          }
         }
         
         try {
@@ -110,6 +161,42 @@ export class ApiClient {
           return text;
         }
       }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        
+        // Check if it's an abort (timeout)
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          logger.error('📡 [API] Request timeout after 30 seconds');
+          throw new NetworkError('Request timeout. Please check your internet connection and try again.');
+        }
+        
+        // Re-throw NetworkError as-is
+        if (fetchError instanceof NetworkError) {
+          throw fetchError;
+        }
+        
+        // Log detailed error information
+        const errorMessage = parseErrorMessage(fetchError);
+        logger.error('📡 [API] Request failed with error:');
+        logger.error(`  - Error type: ${fetchError instanceof Error ? fetchError.constructor.name : typeof fetchError}`);
+        logger.error(`  - Error message: ${errorMessage}`);
+        logger.error(`  - URL: ${url}`);
+        logger.error(`  - Method: ${method}`);
+        logger.error(`  - Full error: ${JSON.stringify(fetchError, Object.getOwnPropertyNames(fetchError))}`);
+        
+        // Provide more specific error messages
+        if (errorMessage.toLowerCase().includes('network request failed') || 
+            errorMessage.toLowerCase().includes('failed to fetch')) {
+          throw new NetworkError(
+            'Unable to connect to the server. Please check:\n' +
+            '1. Your internet connection\n' +
+            '2. The server is accessible\n' +
+            '3. No firewall is blocking the request'
+          );
+        }
+        
+        throw new NetworkError(errorMessage);
+      }
     } catch (error) {
       // Re-throw if it's already a NetworkError
       if (error instanceof NetworkError) {
@@ -118,7 +205,7 @@ export class ApiClient {
       
       // Wrap other errors
       const errorMessage = parseErrorMessage(error);
-      logger.error('📡 API Request failed:', errorMessage);
+      logger.error('📡 [API] Unexpected error:', errorMessage);
       throw new NetworkError(errorMessage);
     }
   }

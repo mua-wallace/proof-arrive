@@ -83,7 +83,8 @@ export default function LoginScreen() {
 
     // Handle specific error types
     if (error instanceof NetworkError || isNetworkError(error)) {
-      return { field: 'general', message: 'Network error. Please check your connection and try again.' };
+      // Use the actual error message which now includes helpful diagnostics
+      return { field: 'general', message: errorMessage || 'Network error. Please check your connection and try again.' };
     }
 
     if (error instanceof AuthError) {

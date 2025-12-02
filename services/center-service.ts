@@ -13,6 +13,7 @@ import {
   saveCenters,
   getAllCenters,
   getCenterByGzoneId,
+  findCenterByName,
 } from './center-storage';
 
 /**
@@ -146,6 +147,19 @@ export async function initializeCenters(
   } catch (error) {
     logger.error('Error initializing centers:', error instanceof Error ? error.message : String(error));
     return false;
+  }
+}
+
+/**
+ * Find center by name (fuzzy match)
+ */
+export async function getCenterByName(name: string): Promise<RawCenterData | null> {
+  try {
+    await initCentersTable();
+    return await findCenterByName(name);
+  } catch (error) {
+    logger.error('Error finding center by name:', error instanceof Error ? error.message : String(error));
+    return null;
   }
 }
 
