@@ -184,54 +184,19 @@ export default function LoginScreen() {
         logger.error('Failed to initialize centers:', parseError(centerError));
       }
       
-      // Check if user is in a geozone after successful login and save center info
-      try {
-        logger.log('📍 Checking user location for geozone...');
-        const currentLocation = await getCurrentLocation();
-        const { getCenterFromLocation } = await import('@/services/geozone-service');
-        const center = await getCenterFromLocation({
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-          accuracy: currentLocation.accuracy,
-          timestamp: currentLocation.timestamp,
-        });
-        
-        if (!center) {
-          // User is not in any geozone - show toast message
-          Toast.show({
-            type: 'error',
-            text1: 'Geozone Not Found',
-            text2: 'You aren\'t in any agreed geozone known, so your center won\'t be able to be determined',
-            visibilityTime: 5000,
-            position: 'top',
-          });
-          logger.warn(
-            `⚠️ User location (${currentLocation.latitude}, ${currentLocation.longitude}) ` +
-            `not found in any geozone - center cannot be determined`
-          );
-        } else {
-          logger.log(
-            `✅ User is in geozone: ${center.geozone} (Center: ${center.name}, ID: ${center.id})`
-          );
-          // Center info is automatically saved by getCenterFromLocation
-        }
-      } catch (locationError) {
-        // Log but don't block navigation - location check can fail due to permissions or other issues
-        logger.error('Failed to check user location for geozone:', parseError(locationError));
-        // Show toast if it's a permission error
-        if (locationError instanceof Error && locationError.message.includes('permission')) {
-          Toast.show({
-            type: 'error',
-            text1: 'Location Permission Required',
-            text2: 'Please enable location permissions to determine your geozone',
-            visibilityTime: 4000,
-            position: 'top',
-          });
-        }
-      }
+      // Check if center is already set
+      const { getCurrentCenter } = await import('@/services/center-info');
+      const existingCenter = await getCurrentCenter();
       
-      // Navigate to main app
-      router.replace('/(tabs)');
+      if (existingCenter) {
+        logger.log(`✅ Center already set: ${existingCenter.name} (ID: ${existingCenter.id})`);
+        // Navigate to main app
+        router.replace('/(tabs)');
+      } else {
+        // Center not set - redirect to center setup
+        logger.log('📍 Center not set, redirecting to center setup...');
+        router.replace('/center-setup');
+      }
     } catch (error: unknown) {
       // Safely handle haptic feedback
       try {

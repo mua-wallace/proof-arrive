@@ -4,8 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Toast from 'react-native-toast-message';
 import 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
 
 import { CustomSplashScreen } from '@/components/splash-screen';
 import { ThemeContextProvider, useThemeContext } from '@/contexts/theme-context';
@@ -61,6 +61,19 @@ function AppContent() {
               // Log but don't block app initialization
               logger.error('Failed to initialize centers on auto-login:', parseErrorMessage(centerError));
             }
+            
+            // Check if center is set - if not, user will need to set it up
+            try {
+              const { getCurrentCenter } = await import('@/services/center-info');
+              const center = await getCurrentCenter();
+              if (!center) {
+                logger.log('📍 No center set for auto-logged-in user - will need to set up center');
+              } else {
+                logger.log(`✅ Center already set: ${center.name} (ID: ${center.id})`);
+              }
+            } catch (centerCheckError) {
+              logger.error('Failed to check center on auto-login:', parseErrorMessage(centerCheckError));
+            }
           }
         } catch (authError) {
           logger.error('Auto-login verification failed:', parseErrorMessage(authError));
@@ -104,6 +117,7 @@ function AppContent() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+        <Stack.Screen name="center-setup" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
         <Stack.Screen name="operation-type" options={{ title: 'Operation Type', presentation: 'modal' }} />

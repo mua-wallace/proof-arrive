@@ -198,9 +198,20 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Center Information
-            </ThemedText>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Center Information
+              </ThemedText>
+              <TouchableOpacity
+                onPress={() => router.push('/center-setup' as any)}
+                style={[styles.changeButton, { borderColor: tintColor }]}
+              >
+                <MaterialIcons name="edit" size={16} color={tintColor} />
+                <ThemedText style={[styles.changeButtonText, { color: tintColor }]}>
+                  Change
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
             <View style={[styles.infoRow, { borderBottomColor: colors.divider }]}>
               <ThemedText style={styles.infoLabel}>Center:</ThemedText>
               <ThemedText style={styles.infoValue}>{centerName}</ThemedText>
@@ -372,9 +383,27 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 16,
   },
-  sectionTitle: {
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
+  },
+  sectionTitle: {
     fontSize: 14,
+  },
+  changeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 4,
+  },
+  changeButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
