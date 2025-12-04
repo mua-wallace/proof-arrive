@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -13,15 +12,15 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { useLocationPermissions } from '@/hooks/use-location-permissions';
+import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { getCurrentCenter, saveCurrentCenter } from '@/services/center-info';
 import { getCenterByZoneId } from '@/services/center-service';
 import { findZoneForLocation, getStoredZones } from '@/services/geozone-service';
@@ -43,6 +42,7 @@ export default function CenterSetupScreen() {
   const [selectedGeozone, setSelectedGeozone] = useState<ParsedZone | null>(null);
   const [showGeozoneModal, setShowGeozoneModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [isChangingCenter, setIsChangingCenter] = useState(false);
   const [locationCheckFailed, setLocationCheckFailed] = useState(false);
   const [showCustomCenter, setShowCustomCenter] = useState(false);
@@ -52,12 +52,31 @@ export default function CenterSetupScreen() {
   const { requestForegroundPermission, checkForegroundPermission } = useLocationPermissions();
 
   useEffect(() => {
-    // Load geozones for dropdown
-    loadGeozones();
-    // Check if this is a change request (user came from profile)
-    // If center is set but user navigated here, allow them to change it
-    // Otherwise, if center is not set, proceed with setup
-    checkExistingCenter();
+    // Initialize: Load geozones and check existing center
+    const initialize = async () => {
+      setIsInitializing(true);
+      const startTime = Date.now();
+      const minDisplayTime = 800; // Minimum 800ms to ensure loader is visible
+      
+      try {
+        // Load geozones and check center in parallel
+        await Promise.all([
+          loadGeozones(),
+          checkExistingCenter(),
+        ]);
+      } catch (error) {
+        logger.error('Error during initialization:', parseErrorMessage(error));
+      } finally {
+        // Ensure loader shows for at least minDisplayTime
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, minDisplayTime - elapsed);
+        setTimeout(() => {
+          setIsInitializing(false);
+        }, remaining);
+      }
+    };
+    
+    initialize();
   }, []);
 
   const checkExistingCenter = async () => {
@@ -144,7 +163,7 @@ export default function CenterSetupScreen() {
     setIsLoading(true);
 
     try {
-      logger.log('📍 Getting current location...');
+      logger.log('📍 Getting current location and checking geozone...');
       const location = await getCurrentLocation();
 
       logger.log(`📍 Location obtained: (${location.latitude}, ${location.longitude})`);
@@ -217,6 +236,7 @@ export default function CenterSetupScreen() {
     setIsLoading(true);
 
     try {
+      logger.log('🔍 Checking center for selected geozone...');
       // Get center from selected geozone
       const center = await getCenterByZoneId(selectedGeozone.id);
 
@@ -278,8 +298,22 @@ export default function CenterSetupScreen() {
     }
   };
 
+  const handleGoBack = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  };
+
   const renderPermissionStep = () => (
     <ThemedView style={styles.container}>
+      {isChangingCenter && (
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 10 }]}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+      )}
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 40 }]}
         showsVerticalScrollIndicator={false}
@@ -338,7 +372,7 @@ export default function CenterSetupScreen() {
       <View style={[styles.content, styles.centerContent, { paddingTop: insets.top + 100 }]}>
         <ActivityIndicator size="large" color={tintColor} />
         <ThemedText type="title" style={styles.title}>
-          Checking Location...
+          Verifying...
         </ThemedText>
         <ThemedText type="default" style={styles.description}>
           Determining your center based on your current location.
@@ -387,8 +421,17 @@ export default function CenterSetupScreen() {
 
   const renderSelectGeozoneStep = () => (
     <ThemedView style={styles.container}>
+      {isChangingCenter && (
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 10 }]}
+          onPress={handleGoBack}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+      )}
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20 }]}
+        contentContainerStyle={[styles.content, { paddingTop: isChangingCenter ? insets.top + 60 : insets.top + 20 }]}
         showsVerticalScrollIndicator={false}
       >
         <ThemedText type="title" style={styles.title}>
@@ -406,7 +449,7 @@ export default function CenterSetupScreen() {
         {!showCustomCenter ? (
           <>
             <TouchableOpacity
-              style={[styles.geozoneSelector, { borderColor: colors.border }]}
+              style={[styles.geozoneSelector, { borderColor: colors.cardBorder }]}
               onPress={() => setShowGeozoneModal(true)}
             >
               <ThemedText style={styles.geozoneSelectorText}>
@@ -454,7 +497,7 @@ export default function CenterSetupScreen() {
               Enter a custom center name for testing purposes. This will not be synced with the server.
             </ThemedText>
 
-            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+            <View style={[styles.inputContainer, { borderColor: colors.cardBorder }]}>
               <MaterialIcons name="business" size={20} color={colors.text} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
@@ -466,7 +509,7 @@ export default function CenterSetupScreen() {
               />
             </View>
 
-            <View style={[styles.inputContainer, { borderColor: colors.border }]}>
+            <View style={[styles.inputContainer, { borderColor: colors.cardBorder }]}>
               <MaterialIcons name="tag" size={20} color={colors.text} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { color: colors.text }]}
@@ -494,7 +537,7 @@ export default function CenterSetupScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.buttonSecondary, { borderColor: colors.border, marginTop: 12 }]}
+              style={[styles.buttonSecondary, { borderColor: colors.cardBorder, marginTop: 12 }]}
               onPress={() => {
                 setShowCustomCenter(false);
                 setCustomCenterName('');
@@ -578,6 +621,32 @@ export default function CenterSetupScreen() {
     </ThemedView>
   );
 
+  const renderInitializingStep = () => (
+    <ThemedView style={styles.container}>
+      <View style={[styles.content, styles.centerContent, { paddingTop: insets.top + 100 }]}>
+        <ActivityIndicator size="large" color={tintColor} />
+        <ThemedText type="title" style={styles.title}>
+          Verifying...
+        </ThemedText>
+        <ThemedText type="default" style={styles.description}>
+          Checking your center setup and loading geozones.
+        </ThemedText>
+      </View>
+    </ThemedView>
+  );
+
+  // Show loading screen while initializing
+  if (isInitializing) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {renderInitializingStep()}
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -587,6 +656,21 @@ export default function CenterSetupScreen() {
       {step === 'checking' && renderCheckingStep()}
       {(step === 'select-geozone' || step === 'custom-center') && renderSelectGeozoneStep()}
       {step === 'saving' && renderSavingStep()}
+      
+      {/* Show verifying overlay when loading during geozone confirmation */}
+      {isLoading && (step === 'select-geozone' || step === 'custom-center') && (
+        <View style={styles.loadingOverlay}>
+          <View style={[styles.loadingContent, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <ActivityIndicator size="large" color={tintColor} />
+            <ThemedText type="title" style={styles.title}>
+              Verifying...
+            </ThemedText>
+            <ThemedText type="default" style={styles.description}>
+              Checking center information.
+            </ThemedText>
+          </View>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -594,6 +678,14 @@ export default function CenterSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
   },
   content: {
     flexGrow: 1,
@@ -743,6 +835,24 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 12,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingContent: {
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    minWidth: 250,
+    borderWidth: 1,
   },
 });
 

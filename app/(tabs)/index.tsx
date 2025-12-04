@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useState, useEffect } from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
+import { CenterVerificationModal } from '@/components/center-verification-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor, useThemeColors } from '@/hooks/use-theme-color';
 import { SwipeableTab } from '@/components/swipeable-tab';
 import { fetchAndParseIncomingVehicles } from '@/services/incoming-vehicle-service';
+import { verifyUserInCenter } from '@/services/center-verification';
 import type { IncomingVehicle } from '@/types/incoming-vehicle';
 import { parseErrorMessage } from '@/utils/error-handler';
 import { logger } from '@/utils/logger';
@@ -23,6 +25,11 @@ export default function IncomingArrivalsScreen() {
   const [vehicles, setVehicles] = useState<IncomingVehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showCenterModal, setShowCenterModal] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    setupCenter: any;
+    currentCenter: any;
+  } | null>(null);
 
   useEffect(() => {
     loadIncomingVehicles();
@@ -56,11 +63,43 @@ export default function IncomingArrivalsScreen() {
 
   const handleStartScanning = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Verify user is in their setup center (silent check)
+    logger.log('🔍 [IncomingArrivals] Verifying user is in setup center before scanning...');
+    const verification = await verifyUserInCenter();
+    
+    if (!verification.isInCenter) {
+      logger.warn('⚠️  [IncomingArrivals] User is not in setup center, showing modal');
+      setVerificationResult({
+        setupCenter: verification.setupCenter,
+        currentCenter: verification.currentCenter,
+      });
+      setShowCenterModal(true);
+      return;
+    }
+
+    logger.log('✅ [IncomingArrivals] User is in setup center, proceeding to scan');
     router.push('/scan');
   };
 
   const handleVehiclePress = async (vehicle: IncomingVehicle) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Verify user is in their setup center (silent check)
+    logger.log('🔍 [IncomingArrivals] Verifying user is in setup center before scanning vehicle...');
+    const verification = await verifyUserInCenter();
+    
+    if (!verification.isInCenter) {
+      logger.warn('⚠️  [IncomingArrivals] User is not in setup center, showing modal');
+      setVerificationResult({
+        setupCenter: verification.setupCenter,
+        currentCenter: verification.currentCenter,
+      });
+      setShowCenterModal(true);
+      return;
+    }
+
+    logger.log('✅ [IncomingArrivals] User is in setup center, proceeding to scan vehicle');
     // Navigate to scan screen with pre-filled vehicle data
     router.push({
       pathname: '/scan',
@@ -213,6 +252,15 @@ export default function IncomingArrivalsScreen() {
           />
         )}
       </ThemedView>
+      <CenterVerificationModal
+        visible={showCenterModal}
+        setupCenter={verificationResult?.setupCenter || null}
+        currentCenter={verificationResult?.currentCenter || null}
+        onClose={() => setShowCenterModal(false)}
+        onModifyCenter={() => {
+          setShowCenterModal(false);
+        }}
+      />
     </SwipeableTab>
   );
 }

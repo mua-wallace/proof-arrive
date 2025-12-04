@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CenterVerificationModal } from '@/components/center-verification-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -13,6 +14,7 @@ import { parseQRCodeData } from '@/services/qr-scanner';
 import { getAllArrivals } from '@/services/storage';
 import { getCurrentCenter } from '@/services/center-info';
 import { CenterInfoService } from '@/services/center-info';
+import { verifyUserInCenter } from '@/services/center-verification';
 import { parseErrorMessage } from '@/utils/error-handler';
 import { logger } from '@/utils/logger';
 
@@ -27,6 +29,11 @@ export default function ScanScreen() {
   const [scanning, setScanning] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [showCenterModal, setShowCenterModal] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    setupCenter: any;
+    currentCenter: any;
+  } | null>(null);
   const tintColor = useThemeColor({}, 'tint');
   const insets = useSafeAreaInsets();
 
@@ -77,6 +84,24 @@ export default function ScanScreen() {
     setScanning(false);
 
     try {
+      // Verify user is in their setup center (silent check)
+      logger.log('🔍 [Scan] Verifying user is in setup center (pre-filled vehicle)...');
+      const verification = await verifyUserInCenter();
+      
+      if (!verification.isInCenter) {
+        logger.warn('⚠️  [Scan] User is not in setup center, showing modal');
+        setVerificationResult({
+          setupCenter: verification.setupCenter,
+          currentCenter: verification.currentCenter,
+        });
+        setShowCenterModal(true);
+        setProcessing(false);
+        setScanning(false);
+        return;
+      }
+
+      logger.log('✅ [Scan] User is in setup center, proceeding with pre-filled vehicle');
+
       // Haptic feedback
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -166,6 +191,24 @@ export default function ScanScreen() {
     setProcessing(true);
 
     try {
+      // Verify user is in their setup center (silent check)
+      logger.log('🔍 [Scan] Verifying user is in setup center...');
+      const verification = await verifyUserInCenter();
+      
+      if (!verification.isInCenter) {
+        logger.warn('⚠️  [Scan] User is not in setup center, showing modal');
+        setVerificationResult({
+          setupCenter: verification.setupCenter,
+          currentCenter: verification.currentCenter,
+        });
+        setShowCenterModal(true);
+        setScanning(true);
+        setProcessing(false);
+        return;
+      }
+
+      logger.log('✅ [Scan] User is in setup center, proceeding with scan');
+
       // Haptic feedback
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -218,13 +261,7 @@ export default function ScanScreen() {
         },
       });
 
-      // Update current center info based on location after successful scan
-      try {
-        await CenterInfoService.updateCurrentCenterIfChanged();
-        logger.log('✅ [Scan] Current center info updated after QR scan.');
-      } catch (centerInfoError) {
-        logger.error('❌ [Scan] Failed to update current center info after QR scan:', parseErrorMessage(centerInfoError));
-      }
+      // Note: Center info is not updated after scanning - it remains the same until user explicitly changes it
     } catch (error) {
       setScanning(true);
       setProcessing(false);
@@ -349,6 +386,15 @@ export default function ScanScreen() {
           </View>
         )}
       </View>
+      <CenterVerificationModal
+        visible={showCenterModal}
+        setupCenter={verificationResult?.setupCenter || null}
+        currentCenter={verificationResult?.currentCenter || null}
+        onClose={() => setShowCenterModal(false)}
+        onModifyCenter={() => {
+          setShowCenterModal(false);
+        }}
+      />
     </ThemedView>
   );
 }
