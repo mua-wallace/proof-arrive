@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Easing, PixelRatio, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
@@ -150,6 +151,22 @@ export function CustomSplashScreen() {
           </View>
         </Animated.View>
       </View>
+
+      {/* Powered by Malambi */}
+      <View style={styles.poweredByContainer}>
+        <Text style={[styles.poweredByText, { color: isDark ? '#9BA1A6' : '#6B7A8A' }]}>
+          Powered by{' '}
+        </Text>
+        <Text style={[styles.malambiText, { color: isDark ? '#4FC3F7' : '#0a7ea4' }]}>
+          Malambi
+        </Text>
+        <MaterialIcons
+          name="bolt"
+          size={scaleFont(14)}
+          color={isDark ? '#4FC3F7' : '#0a7ea4'}
+          style={styles.boltIcon}
+        />
+      </View>
     </View>
   );
 }
@@ -221,6 +238,31 @@ const styles = StyleSheet.create({
     flex: 1,
     letterSpacing: 0.15,
     includeFontPadding: false,
+  },
+  poweredByContainer: {
+    position: 'absolute',
+    bottom: scaleSpacing(40),
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: scaleSpacing(16),
+  },
+  poweredByText: {
+    fontSize: scaleFont(11),
+    fontWeight: '400',
+    letterSpacing: 0.3,
+    includeFontPadding: false,
+  },
+  malambiText: {
+    fontSize: scaleFont(12),
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    includeFontPadding: false,
+  },
+  boltIcon: {
+    marginLeft: scaleSpacing(4),
   },
 });
 
