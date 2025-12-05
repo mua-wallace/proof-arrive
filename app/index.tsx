@@ -39,40 +39,35 @@ export default function HomeScreen() {
     const movementRadiusX = SCREEN_WIDTH * 0.2; // 20% of screen width from center
     const movementRadiusY = SCREEN_HEIGHT * 0.2; // 20% of screen height from center
 
-    // Create very slow, smooth floating animation around center
+    // Create smooth floating animation around center
     const createSlowFloat = (
       animX: Animated.Value,
       animY: Animated.Value,
-      initialDelay: number
+      initialDelay: number,
+      duration: number
     ) => {
-      const moveToPosition = (targetX: number, targetY: number, duration: number) => {
-        return Animated.parallel([
-          Animated.timing(animX, {
-            toValue: targetX,
-            duration: duration,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(animY, {
-            toValue: targetY,
-            duration: duration,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]);
-      };
-
       const animate = () => {
         // Generate new random position
         const randomX = (Math.random() - 0.5) * 2 * movementRadiusX;
         const randomY = (Math.random() - 0.5) * 2 * movementRadiusY;
         
-        // Very slow movement - 60 seconds per transition
-        moveToPosition(randomX, randomY, 60000).start(() => {
-          // Wait a bit before next movement
-          setTimeout(() => {
-            animate();
-          }, 2000);
+        // Animate to new position
+        Animated.parallel([
+          Animated.timing(animX, {
+            toValue: randomX,
+            duration: duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animY, {
+            toValue: randomY,
+            duration: duration,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Loop animation
+          animate();
         });
       };
 
@@ -81,16 +76,20 @@ export default function HomeScreen() {
       animY.setValue(0);
       
       // Start after initial delay
-      setTimeout(() => {
+      if (initialDelay > 0) {
+        setTimeout(() => {
+          animate();
+        }, initialDelay);
+      } else {
         animate();
-      }, initialDelay);
+      }
     };
 
-    // Start very slow floating movements
-    createSlowFloat(vehicle1X, vehicle1Y, 0);
-    createSlowFloat(vehicle2X, vehicle2Y, 5000);
-    createSlowFloat(qrCodeX, qrCodeY, 10000);
-    createSlowFloat(malambiTextX, malambiTextY, 15000);
+    // Start smooth floating movements with reasonable speeds
+    createSlowFloat(vehicle1X, vehicle1Y, 0, 20000); // 20 seconds
+    createSlowFloat(vehicle2X, vehicle2Y, 3000, 25000); // 25 seconds
+    createSlowFloat(qrCodeX, qrCodeY, 6000, 22000); // 22 seconds
+    createSlowFloat(malambiTextX, malambiTextY, 9000, 24000); // 24 seconds
   }, []);
 
   return (
@@ -179,11 +178,12 @@ export default function HomeScreen() {
             style={[
               styles.logoContainer,
               {
-                backgroundColor: tintColor + '20',
-                borderColor: tintColor + '40',
+                backgroundColor: 'transparent',
+                borderColor: tintColor + '60',
                 shadowColor: tintColor,
               },
-            ]}>
+            ]}
+            pointerEvents="none">
             <ThemedText
               style={[styles.logoText, { color: tintColor }]}
               type="title">
@@ -281,6 +281,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 0,
+    pointerEvents: 'none', // Allow touches to pass through
   },
   backgroundIcon: {
     position: 'absolute',
@@ -334,10 +335,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2.5,
     marginBottom: 20,
+    backgroundColor: 'transparent',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
-    elevation: 6,
+    elevation: 0, // Remove elevation to allow background to show through
+    zIndex: 1, // Keep above background but allow transparency
+    overflow: 'visible', // Allow content to show through
   },
   logoText: {
     fontSize: 38,
@@ -346,10 +350,11 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: 'center',
-    fontSize: 34,
-    fontWeight: '700',
+    fontSize: 36,
+    fontWeight: '800',
     marginBottom: 6,
-    letterSpacing: 0.3,
+    letterSpacing: 1,
+    fontFamily: 'System',
   },
   subtitle: {
     textAlign: 'center',
