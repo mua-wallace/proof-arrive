@@ -1,8 +1,10 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Easing, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -14,89 +16,101 @@ export default function HomeScreen() {
   const colors = useThemeColors();
   const tintColor = useThemeColor({}, 'tint');
 
-  // Animation values for background icons
-  const vehicle1Anim = useRef(new Animated.Value(0)).current;
-  const vehicle2Anim = useRef(new Animated.Value(0)).current;
-  const vehicle3Anim = useRef(new Animated.Value(0)).current;
-  const agentAnim = useRef(new Animated.Value(0)).current;
-  const qrCodeAnim = useRef(new Animated.Value(0)).current;
-  const malambiTextAnim = useRef(new Animated.Value(0)).current;
+  // Attractive, distinct colors for background icons
+  const iconColors = {
+    vehicle1: '#2196F3', // Blue - classic car color
+    vehicle2: '#FF9800', // Orange - shipping/truck color
+    qrCode: '#00BCD4', // Cyan - tech/digital
+    malambiText: tintColor, // Theme color for text
+  };
+
+  // Animation values for subtle background movement
+  const vehicle1X = useRef(new Animated.Value(0)).current;
+  const vehicle1Y = useRef(new Animated.Value(0)).current;
+  const vehicle2X = useRef(new Animated.Value(0)).current;
+  const vehicle2Y = useRef(new Animated.Value(0)).current;
+  const qrCodeX = useRef(new Animated.Value(0)).current;
+  const qrCodeY = useRef(new Animated.Value(0)).current;
+  const malambiTextX = useRef(new Animated.Value(0)).current;
+  const malambiTextY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Create floating animations for background icons
-    const createFloatingAnimation = (animValue: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(animValue, {
-            toValue: 1,
-            duration: 3000,
+    // Calculate movement area around center - small contained area
+    const movementRadiusX = SCREEN_WIDTH * 0.2; // 20% of screen width from center
+    const movementRadiusY = SCREEN_HEIGHT * 0.2; // 20% of screen height from center
+
+    // Create very slow, smooth floating animation around center
+    const createSlowFloat = (
+      animX: Animated.Value,
+      animY: Animated.Value,
+      initialDelay: number
+    ) => {
+      const moveToPosition = (targetX: number, targetY: number, duration: number) => {
+        return Animated.parallel([
+          Animated.timing(animX, {
+            toValue: targetX,
+            duration: duration,
+            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
-          Animated.timing(animValue, {
-            toValue: 0,
-            duration: 3000,
+          Animated.timing(animY, {
+            toValue: targetY,
+            duration: duration,
+            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
-        ])
-      );
+        ]);
+      };
+
+      const animate = () => {
+        // Generate new random position
+        const randomX = (Math.random() - 0.5) * 2 * movementRadiusX;
+        const randomY = (Math.random() - 0.5) * 2 * movementRadiusY;
+        
+        // Very slow movement - 60 seconds per transition
+        moveToPosition(randomX, randomY, 60000).start(() => {
+          // Wait a bit before next movement
+          setTimeout(() => {
+            animate();
+          }, 2000);
+        });
+      };
+
+      // Initialize at center
+      animX.setValue(0);
+      animY.setValue(0);
+      
+      // Start after initial delay
+      setTimeout(() => {
+        animate();
+      }, initialDelay);
     };
 
-    Animated.parallel([
-      createFloatingAnimation(vehicle1Anim, 0),
-      createFloatingAnimation(vehicle2Anim, 500),
-      createFloatingAnimation(vehicle3Anim, 1000),
-      createFloatingAnimation(agentAnim, 200),
-      createFloatingAnimation(qrCodeAnim, 700),
-      createFloatingAnimation(malambiTextAnim, 300),
-    ]).start();
+    // Start very slow floating movements
+    createSlowFloat(vehicle1X, vehicle1Y, 0);
+    createSlowFloat(vehicle2X, vehicle2Y, 5000);
+    createSlowFloat(qrCodeX, qrCodeY, 10000);
+    createSlowFloat(malambiTextX, malambiTextY, 15000);
   }, []);
-
-  const vehicle1TranslateY = vehicle1Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -15],
-  });
-
-  const vehicle2TranslateY = vehicle2Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -20],
-  });
-
-  const vehicle3TranslateY = vehicle3Anim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -12],
-  });
-
-  const agentTranslateY = agentAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -18],
-  });
-
-  const qrCodeTranslateY = qrCodeAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -16],
-  });
-
-  const malambiTextTranslateY = malambiTextAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -14],
-  });
 
   return (
     <ThemedView style={styles.container}>
       {/* Background Icons */}
       <View style={styles.backgroundIcons}>
-        {/* Vehicle Icons */}
+        {/* Attractive Background Icons with Distinct Colors */}
         <Animated.View
           style={[
             styles.backgroundIcon,
             styles.vehicle1,
             {
-              transform: [{ translateY: vehicle1TranslateY }],
-              opacity: 0.15,
+              transform: [
+                { translateX: vehicle1X },
+                { translateY: vehicle1Y },
+              ],
+              opacity: 0.3,
             },
           ]}>
-          <MaterialIcons name="directions-car" size={80} color={tintColor} />
+          <MaterialIcons name="directions-car" size={75} color={iconColors.vehicle1} />
         </Animated.View>
 
         <Animated.View
@@ -104,49 +118,29 @@ export default function HomeScreen() {
             styles.backgroundIcon,
             styles.vehicle2,
             {
-              transform: [{ translateY: vehicle2TranslateY }],
-              opacity: 0.12,
+              transform: [
+                { translateX: vehicle2X },
+                { translateY: vehicle2Y },
+              ],
+              opacity: 0.28,
             },
           ]}>
-          <MaterialIcons name="local-shipping" size={70} color={tintColor} />
+          <MaterialIcons name="local-shipping" size={70} color={iconColors.vehicle2} />
         </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.backgroundIcon,
-            styles.vehicle3,
-            {
-              transform: [{ translateY: vehicle3TranslateY }],
-              opacity: 0.1,
-            },
-          ]}>
-          <MaterialIcons name="airport-shuttle" size={65} color={tintColor} />
-        </Animated.View>
-
-        {/* Agent Icon */}
-        <Animated.View
-          style={[
-            styles.backgroundIcon,
-            styles.agentIcon,
-            {
-              transform: [{ translateY: agentTranslateY }],
-              opacity: 0.2,
-            },
-          ]}>
-          <MaterialIcons name="person" size={60} color={tintColor} />
-        </Animated.View>
-
-        {/* QR Code Icon */}
         <Animated.View
           style={[
             styles.backgroundIcon,
             styles.qrCodeIcon,
             {
-              transform: [{ translateY: qrCodeTranslateY }],
-              opacity: 0.18,
+              transform: [
+                { translateX: qrCodeX },
+                { translateY: qrCodeY },
+              ],
+              opacity: 0.3,
             },
           ]}>
-          <MaterialIcons name="qr-code" size={55} color={tintColor} />
+          <MaterialIcons name="qr-code" size={65} color={iconColors.qrCode} />
         </Animated.View>
 
         {/* Malambi Sarl Text */}
@@ -155,14 +149,17 @@ export default function HomeScreen() {
             styles.backgroundIcon,
             styles.malambiTextContainer,
             {
-              transform: [{ translateY: malambiTextTranslateY }],
-              opacity: 0.1,
+              transform: [
+                { translateX: malambiTextX },
+                { translateY: malambiTextY },
+              ],
+              opacity: 0.25,
             },
           ]}>
           <ThemedText
-            style={[styles.malambiSarlText, { color: tintColor }]}
-            lightColor={tintColor}
-            darkColor={tintColor}>
+            style={[styles.malambiSarlText, { color: iconColors.malambiText }]}
+            lightColor={iconColors.malambiText}
+            darkColor={iconColors.malambiText}>
             Malambi Sarl
           </ThemedText>
         </Animated.View>
@@ -289,33 +286,33 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   vehicle1: {
-    top: '15%',
-    left: '10%',
+    top: '50%',
+    left: '50%',
+    marginTop: -40, // Half of icon size to center it
+    marginLeft: -40,
   },
   vehicle2: {
-    top: '25%',
-    right: '8%',
-  },
-  vehicle3: {
-    bottom: '30%',
-    left: '5%',
-  },
-  agentIcon: {
     top: '50%',
-    right: '12%',
+    left: '50%',
+    marginTop: -35,
+    marginLeft: -35,
   },
   qrCodeIcon: {
-    bottom: '45%',
-    right: '15%',
+    top: '50%',
+    left: '50%',
+    marginTop: -25,
+    marginLeft: -25,
   },
   malambiTextContainer: {
-    top: '60%',
-    left: '8%',
+    top: '50%',
+    left: '50%',
+    marginTop: -18, // Approximate half of text height
+    marginLeft: -90, // Approximate half of text width
   },
   malambiSarlText: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
   content: {
@@ -330,36 +327,37 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    marginBottom: 24,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
+    borderWidth: 2.5,
+    marginBottom: 20,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
   },
   logoText: {
-    fontSize: 40,
+    fontSize: 38,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   title: {
     textAlign: 'center',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '700',
-    marginBottom: 8,
-    letterSpacing: 0.5,
+    marginBottom: 6,
+    letterSpacing: 0.3,
   },
   subtitle: {
     textAlign: 'center',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '400',
-    letterSpacing: 0.2,
-    marginTop: 4,
+    letterSpacing: 0.15,
+    marginTop: 2,
+    lineHeight: 22,
   },
   featuresContainer: {
     width: '100%',
@@ -368,52 +366,53 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 14,
     backgroundColor: 'transparent',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   featureIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
+    marginRight: 18,
   },
   featureTextContainer: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
-    marginBottom: 4,
-    letterSpacing: 0.2,
+    marginBottom: 5,
+    letterSpacing: 0.15,
   },
   featureDescription: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '400',
-    lineHeight: 18,
+    lineHeight: 20,
+    letterSpacing: 0.1,
   },
   getStartedButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 32,
-    borderRadius: 16,
+    borderRadius: 14,
     alignSelf: 'stretch',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-    marginTop: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
+    marginTop: 12,
   },
   getStartedButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginRight: 10,
-    letterSpacing: 0.8,
+    fontSize: 17,
+    fontWeight: '600',
+    marginRight: 8,
+    letterSpacing: 0.5,
   },
   buttonIcon: {
     marginLeft: 4,
