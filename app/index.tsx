@@ -174,22 +174,31 @@ export default function HomeScreen() {
         ]}>
         {/* Logo and Title */}
         <ThemedView style={styles.header}>
-          <ThemedView
+          <View
             style={[
               styles.logoContainer,
               {
-                backgroundColor: 'transparent',
-                borderColor: tintColor + '60',
+                borderColor: tintColor + '80',
                 shadowColor: tintColor,
               },
             ]}
             pointerEvents="none">
-            <ThemedText
-              style={[styles.logoText, { color: tintColor }]}
-              type="title">
-              PA
-            </ThemedText>
-          </ThemedView>
+            <View
+              style={[
+                styles.logoInnerCircle,
+                {
+                  backgroundColor: tintColor + '15',
+                  borderColor: tintColor + '40',
+                },
+              ]}>
+              <ThemedText
+                style={[styles.logoText, { color: tintColor }]}
+                type="title">
+                PA
+              </ThemedText>
+            </View>
+            <View style={[styles.logoAccent, { backgroundColor: tintColor + '30' }]} />
+          </View>
           <ThemedText type="title" style={styles.title}>
             ProofArrive
           </ThemedText>
@@ -328,25 +337,42 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2.5,
-    marginBottom: 20,
+    borderWidth: 3,
+    marginBottom: 24,
     backgroundColor: 'transparent',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 0, // Remove elevation to allow background to show through
-    zIndex: 1, // Keep above background but allow transparency
-    overflow: 'visible', // Allow content to show through
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 0,
+    zIndex: 1,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  logoInnerCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  logoAccent: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
   },
   logoText: {
-    fontSize: 38,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: 2,
   },
   title: {
     textAlign: 'center',
